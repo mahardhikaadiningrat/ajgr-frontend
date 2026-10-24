@@ -219,7 +219,7 @@ const activeSections = [
     )}
   </section>
 
-  <script is:inline>
+   <script is:inline>
     document.addEventListener('DOMContentLoaded', function() {
       const compareBtn = document.getElementById('compare-btn');
       
@@ -228,17 +228,12 @@ const activeSections = [
           const slug = this.getAttribute('data-slug');
           const title = this.getAttribute('data-title');
           
-          let compareList = JSON.parse(localStorage.getItem('ajgr_compare') || '[]');
-          const alreadyExists = compareList.some(item => item.slug === slug);
+          // SELALU reset localStorage dengan sepeda ini sebagai #1
+          // Mulai compare baru, bukan tambahkan ke yang lama
+          const compareList = [{ slug: slug, title: title }];
+          localStorage.setItem('ajgr_compare', JSON.stringify(compareList));
           
-          if (!alreadyExists) {
-            if (compareList.length >= 3) {
-              compareList.shift();
-            }
-            compareList.push({ slug: slug, title: title });
-            localStorage.setItem('ajgr_compare', JSON.stringify(compareList));
-          }
-          
+          // Redirect ke halaman compare
           window.location.href = '/compare';
         });
       }
