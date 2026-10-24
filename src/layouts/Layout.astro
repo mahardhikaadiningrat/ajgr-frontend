@@ -1,0 +1,229 @@
+---
+const { settings } = Astro.props || {};
+const siteTitle = settings?.siteTitle || 'AJGR.cc';
+const footerCredit = settings?.footerCredit || '© 2026 AJGR.cc';
+const themeColor = settings?.themeColor || '#C84B8E';
+const menuItems = settings?.headerMenu || [
+  { label: 'HOME', link: '/' },
+  { label: 'JOURNAL', link: '/journal' },
+  { label: 'ARCHIVE', link: '/archive' },
+  { label: 'ROLODEX', link: '/rolodex' },
+  { label: 'EVENTS', link: '/events' }
+];
+
+import { urlFor } from '../lib/sanity';
+const logoUrl = settings?.logo ? urlFor(settings.logo).width(120).url() : null;
+---
+
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{siteTitle}</title>
+    <!-- Font Premium: Space Grotesk (Heading) & Inter (Body) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+      <!-- TAMBAHKAN/UPDATE BARIS INI -->
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="shortcut icon" href="/favicon.ico" />
+
+    <style>
+      :root {
+        --bg: #FAFAFA;
+        --text: #111111;
+        --text-muted: #666666;
+        --border: #E5E5E5;
+        --accent: {themeColor};
+        --font-heading: 'Space Grotesk', sans-serif;
+        --font-body: 'Inter', sans-serif;
+      }
+
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      
+      body { 
+        background: var(--bg); 
+        color: var(--text); 
+        font-family: var(--font-body); 
+        font-weight: 400;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* Mencegah scroll saat menu mobile terbuka */
+      body.menu-open { overflow: hidden; }
+
+      /* HEADER: Ultra clean, border bottom */
+      header {
+        position: sticky; top: 0; z-index: 100;
+        background: rgba(250, 250, 250, 0.95);
+        backdrop-filter: blur(8px);
+        border-bottom: 1px solid var(--border);
+      }
+      header .container {
+        max-width: 1440px; margin: 0 auto; padding: 1.25rem 2rem;
+        display: flex; justify-content: space-between; align-items: center;
+      }
+      header .logo-img { height: 32px; width: auto; filter: grayscale(100%); transition: filter 0.3s; }
+      header .logo-img:hover { filter: grayscale(0%); }
+      header .logo-text { font-family: var(--font-heading); font-size: 1.25rem; font-weight: 700; letter-spacing: -0.03em; text-decoration: none; color: var(--text); }
+      header .logo-text span { color: var(--accent); }
+
+      /* Desktop Navigation */
+      header nav.desktop-nav ul { display: flex; list-style: none; gap: 2rem; }
+      header nav.desktop-nav a { 
+        font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em;
+        color: var(--text-muted); text-decoration: none; transition: color 0.2s;
+      }
+      header nav.desktop-nav a:hover { color: var(--text); }
+
+      /* Hamburger Button (Hidden on Desktop) */
+      .hamburger {
+        display: none;
+        flex-direction: column;
+        gap: 5px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0.5rem;
+        z-index: 102;
+      }
+      .hamburger span {
+        display: block;
+        width: 24px;
+        height: 2px;
+        background: var(--text);
+        transition: all 0.3s ease;
+        border-radius: 2px;
+      }
+      /* Animasi Hamburger menjadi X */
+      .hamburger.active span:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
+      .hamburger.active span:nth-child(2) { opacity: 0; }
+      .hamburger.active span:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
+
+      /* Mobile Menu Overlay */
+      .mobile-menu {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100vh;
+        background: var(--bg);
+        z-index: 101;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2rem;
+        transform: translateY(-100%);
+        transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .mobile-menu.active {
+        transform: translateY(0);
+      }
+      .mobile-menu a {
+        font-family: var(--font-heading);
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--text);
+        text-decoration: none;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        transition: color 0.2s;
+      }
+      .mobile-menu a:hover {
+        color: var(--accent);
+      }
+
+      main { max-width: 1440px; margin: 0 auto; padding: 0 2rem; }
+
+      /* FOOTER: Minimalist */
+      footer { border-top: 1px solid var(--border); margin-top: 8rem; }
+      
+      /* UTILITIES */
+      .label { font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--text-muted); margin-bottom: 0.75rem; display: block; }
+      .label-accent { color: var(--accent); }
+      
+      /* RESPONSIVE */
+      @media (max-width: 768px) {
+        header nav.desktop-nav { display: none; }
+        .hamburger { display: flex; }
+        footer { padding: 2rem 1.5rem; }
+        footer .container { flex-direction: column; gap: 1rem; align-items: flex-start; }
+      }
+
+      @media (min-width: 769px) {
+        .hamburger { display: none; }
+        .mobile-menu { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="container">
+        <a href="/" class="logo">
+          {logoUrl ? <img src={logoUrl} alt="Logo" class="logo-img" /> : <span class="logo-text">AJGR<span>.cc</span></span>}
+        </a>
+        
+        <!-- Desktop Menu -->
+        <nav class="desktop-nav">
+          <ul>
+            {menuItems.map((item: any) => <li><a href={item.link}>{item.label}</a></li>)}
+          </ul>
+        </nav>
+
+        <!-- Hamburger Button (Mobile Only) -->
+        <button class="hamburger" id="hamburger-btn" aria-label="Toggle menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </div>
+    </header>
+    
+    <!-- Mobile Menu Overlay -->
+    <div class="mobile-menu" id="mobile-menu">
+      {menuItems.map((item: any) => (
+        <a href={item.link} class="mobile-link">{item.label}</a>
+      ))}
+    </div>
+    
+    <main><slot /></main>
+    
+    <footer style="padding: 2rem 4rem; border-top: 1px solid var(--border, #E5E5E5); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; background: #FAFAFA;">
+      <p style="font-size: 0.7rem; color: var(--text-muted, #666); letter-spacing: 0.1em; text-transform: uppercase; margin: 0;">
+        {settings?.footerCredit || '© 2026 AJGR.cc - Komunitas Sepeda Gianyar, Bali'}
+      </p>
+      <p style="font-size: 0.7rem; color: var(--text-muted, #666); letter-spacing: 0.15em; text-transform: uppercase; margin: 0;">
+        {settings?.heroSection?.footerTagline || 'DESIGNED FOR VELOCITY'}
+      </p>
+    </footer>
+
+    <!-- Script untuk mengontrol Hamburger Menu -->
+    <script is:inline>
+      const hamburgerBtn = document.getElementById('hamburger-btn');
+      const mobileMenu = document.getElementById('mobile-menu');
+      const mobileLinks = document.querySelectorAll('.mobile-link');
+
+      function toggleMenu() {
+        hamburgerBtn.classList.toggle('active');
+        mobileMenu.classList.toggle('active');
+        document.body.classList.toggle('menu-open');
+      }
+
+      if (hamburgerBtn) {
+        hamburgerBtn.addEventListener('click', toggleMenu);
+      }
+
+      // Tutup menu otomatis saat salah satu link diklik
+      mobileLinks.forEach(link => {
+        link.addEventListener('click', () => {
+          hamburgerBtn.classList.remove('active');
+          mobileMenu.classList.remove('active');
+          document.body.classList.remove('menu-open');
+        });
+      });
+    </script>
+  </body>
+</html>

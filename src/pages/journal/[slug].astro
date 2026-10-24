@@ -1,0 +1,230 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro'
+import client from '../../lib/sanity'
+import { urlFor, getSiteSettings } from '../../lib/sanity'
+
+const { slug } = Astro.params
+
+// Ambil data post berdasarkan slug
+const post = await client.fetch(`*[_type == "post" && slug.current == $slug][0]{
+  title, slug, category, publishedAt, mainImage, body,
+  routeUrl, routePlatform, routeDistance, routeDuration
+}`, { slug })
+
+if (!post) {
+  return Astro.redirect('/journal')
+}
+
+const settings = await getSiteSettings()
+
+// Helper: Format tanggal
+function formatDate(dateStr) {
+  const date = new Date(dateStr)
+  return date.toLocaleDateString('id-ID', { 
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' 
+  })
+}
+
+// Helper: Generate embed URL berdasarkan platform
+function getRouteEmbed(routeUrl, platform) {
+  if (!routeUrl) return null
+  
+  if (platform === 'relive') {
+    const id = routeUrl.split('/view/')[1]?.split('?')[0]?.split('/')[0]
+    return id ? `https://relive.cc/view/${id}/embed` : null
+  }
+  
+  if (platform === 'komoot') {
+    if (routeUrl.includes('/embed')) return routeUrl
+    return `${routeUrl.replace(/\/$/, '')}/embed`
+  }
+  
+  if (platform === 'strava') {
+    if (routeUrl.includes('/embed')) return routeUrl
+    return `${routeUrl.replace(/\/$/, '')}/embed`
+  }
+  
+  if (platform === 'google') {
+    if (routeUrl.includes('/embed')) return routeUrl
+    const placeId = routeUrl.match(/place\/[^/]+\/@([^/]+)/)
+    if (placeId) {
+      return `https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${encodeURIComponent(routeUrl)}`
+    }
+    return null
+  }
+  
+  return null
+}
+
+const embedUrl = getRouteEmbed(post.routeUrl, post.routePlatform)
+
+// Helper: Render Portable Text dari Sanity
+function renderPortableText(blocks) {
+  if (!blocks) return ''
+  return blocks.map((block) => {
+    if (block._type === 'block') {
+      const children = block.children?.map(child => {
+        let text = child.text || ''
+        if (child.marks?.includes('strong')) text = `<strong>${text}</strong>`
+        if (child.marks?.includes('em')) text = `<em>${text}</em>`
+        return text
+      }).join('') || ''
+      
+      const style = block.style || 'normal'
+      
+      if (style === 'blockquote') {
+        return `<blockquote style="border-left: 3px solid var(--accent, #C84B8E); padding-left: 1.5rem; margin: 1.5rem 0; font-style: italic; color: var(--text-muted, #666); overflow-wrap: break-word;">${children}</blockquote>`
+      }
+      if (style === 'h2') {
+        return `<h2 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.75rem; font-weight: 600; margin: 2rem 0 1rem; letter-spacing: -0.02em; overflow-wrap: break-word; word-wrap: break-word;">${children}</h2>`
+      }
+      if (style === 'h3') {
+        return `<h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.35rem; font-weight: 600; margin: 1.5rem 0 0.75rem; overflow-wrap: break-word; word-wrap: break-word;">${children}</h3>`
+      }
+      return `<p style="font-size: 1.05rem; line-height: 1.8; margin-bottom: 1.25rem; color: var(--text, #111); overflow-wrap: break-word; word-wrap: break-word; word-break: break-word;">${children}</p>`
+    }
+    
+    if (block._type === 'image') {
+      const src = urlFor(block.asset).width(1200).url()
+      const caption = block.caption ? `<figcaption style="text-align: center; font-size: 0.85rem; color: var(--text-muted, #666); margin-top: 0.75rem; font-style: italic;">${block.caption}</figcaption>` : ''
+      return `<figure style="margin: 2rem 0;"><img src="${src}" alt="" style="width: 100%; border-radius: 4px;" />${caption}</figure>`
+    }
+    
+    return ''
+  }).join('')
+}
+
+const articleContent = renderPortableText(post.body)
+---
+
+<Layout settings={settings}>
+  <!-- BREADCRUMB -->
+  <nav style="padding: 2rem 0; border-bottom: 1px solid var(--border, #E5E5E5);">
+    <a href="/journal" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); text-decoration: none;">
+      ← Back to Journal
+    </a>
+  </nav>
+
+  <!-- HERO SECTION -->
+  <section style="padding: 4rem 0 3rem;">
+    <span style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); margin-bottom: 1rem; display: block;">
+      {post.category || 'ARTICLE'}
+    </span>
+    
+    <h1 style="font-family: 'Space Grotesk', sans-serif; font-size: clamp(2.5rem, 6vw, 4.5rem); font-weight: 600; letter-spacing: -0.03em; margin: 1rem 0 1.5rem; color: var(--text, #111); line-height: 1.05; overflow-wrap: break-word;">
+      {post.title}
+    </h1>
+    
+    <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; padding-bottom: 2rem; border-bottom: 1px solid var(--border, #E5E5E5);">
+      <time style="font-size: 0.85rem; color: var(--text-muted, #666); font-variant-numeric: tabular-nums;">
+        {formatDate(post.publishedAt)}
+      </time>
+    </div>
+  </section>
+
+  <!-- MAIN CONTENT GRID -->
+  <section style="padding: 3rem 0 6rem; display: grid; grid-template-columns: 1.5fr 1fr; gap: 4rem; align-items: start;">
+    
+    <!-- Left Column: Article Content -->
+    <article style="min-width: 0;">
+      {post.mainImage && (
+        <div style="aspect-ratio: 16/9; background: #F0F0F0; overflow: hidden; margin-bottom: 3rem;">
+          <img 
+            src={urlFor(post.mainImage).width(1200).url()} 
+            alt={post.title}
+            style="width: 100%; height: 100%; object-fit: cover;"
+          />
+        </div>
+      )}
+
+      <div 
+        set:html={articleContent} 
+        style="max-width: 680px; overflow-wrap: break-word; word-wrap: break-word; word-break: break-word;"
+      ></div>
+    </article>
+
+    <!-- Right Column: Sidebar -->
+    <aside style="position: sticky; top: 100px; min-width: 0;">
+      
+      <!-- Route Card (Hanya tampil jika ada routeUrl) -->
+      {post.routeUrl && (
+        <div style="border: 1px solid var(--border, #E5E5E5); padding: 2rem; margin-bottom: 1.5rem;">
+          <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.15em; color: var(--text-muted, #666); margin-bottom: 1.5rem;">
+            🗺️ Rute Gowes
+          </h3>
+
+          <!-- Info Jarak & Durasi -->
+          {(post.routeDistance || post.routeDuration) && (
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border, #E5E5E5);">
+              {post.routeDistance && (
+                <div>
+                  <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #999; margin-bottom: 0.25rem;">Jarak</p>
+                  <p style="font-family: 'Space Grotesk', sans-serif; font-size: 1.25rem; font-weight: 600; color: var(--text, #111);">
+                    {post.routeDistance} <span style="font-size: 0.85rem; font-weight: 400;">km</span>
+                  </p>
+                </div>
+              )}
+              {post.routeDuration && (
+                <div>
+                  <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #999; margin-bottom: 0.25rem;">Durasi</p>
+                  <p style="font-family: 'Space Grotesk', sans-serif; font-size: 1.25rem; font-weight: 600; color: var(--text, #111);">
+                    {post.routeDuration}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <!-- Embed Map (untuk Relive, Komoot, Strava) -->
+          {embedUrl && (
+            <div style="aspect-ratio: 1/1; background: #F5F5F5; border-radius: 4px; overflow: hidden; margin-bottom: 1rem; border: 1px solid var(--border, #E5E5E5);">
+              <iframe 
+                src={embedUrl}
+                style="width: 100%; height: 100%; border: 0;"
+                allowfullscreen
+                loading="lazy"
+              ></iframe>
+            </div>
+          )}
+
+          <!-- Tombol Buka Rute -->
+          <a 
+            href={post.routeUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style="display: block; text-align: center; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: white; background: var(--text, #111); text-decoration: none; padding: 1rem; transition: all 0.2s ease;"
+            onmouseover="this.style.backgroundColor='var(--accent, #C84B8E)'"
+            onmouseout="this.style.backgroundColor='var(--text, #111)'"
+          >
+            {embedUrl ? 'Buka Rute Lengkap →' : 'Lihat Rute di Map →'}
+          </a>
+        </div>
+      )}
+
+      <!-- Meta Info Card -->
+      <div style="border: 1px solid var(--border, #E5E5E5); padding: 2rem;">
+        <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.15em; color: var(--text-muted, #666); margin-bottom: 1.5rem;">
+          Info Artikel
+        </h3>
+
+        <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+          <div style="padding-bottom: 1.25rem; border-bottom: 1px solid var(--border, #E5E5E5);">
+            <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #999; margin-bottom: 0.5rem;">Kategori</p>
+            <p style="font-size: 1rem; color: var(--text, #111); font-weight: 500; text-transform: capitalize;">
+              {post.category}
+            </p>
+          </div>
+
+          <div>
+            <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #999; margin-bottom: 0.5rem;">Dipublikasi</p>
+            <p style="font-size: 1rem; color: var(--text, #111); font-weight: 500;">
+              {formatDate(post.publishedAt)}
+            </p>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </section>
+</Layout>

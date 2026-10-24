@@ -1,0 +1,225 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro'
+import client from '../../lib/sanity'
+import { urlFor, getSiteSettings } from '../../lib/sanity'
+
+const { slug } = Astro.params
+
+// Ambil data item + relatedBike (jika ada)
+const item = await client.fetch(`*[_type == "marketplace" && slug.current == $slug][0]{
+  title, slug, category, brand, price, condition, year, description, status,
+  sellerName, sellerPhone, sellerLocation,
+  images,
+  relatedBike->{title, slug, year, country, type, mainImage}
+}`, { slug })
+
+if (!item) {
+  return Astro.redirect('/marketplace')
+}
+
+const settings = await getSiteSettings()
+
+// Helper: Format Rupiah
+function formatRupiah(angka: number) {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka)
+}
+
+// Helper: Warna status
+function getStatusColor(status: string) {
+  if (status === 'available') return '#22C55E'
+  if (status === 'reserved') return '#EAB308'
+  return '#EF4444'
+}
+
+function formatStatus(status: string) {
+  const map: any = { available: 'Tersedia', reserved: 'Reserved', sold: 'Terjual' }
+  return map[status] || status
+}
+
+function formatCountry(c: string) {
+  const map: any = { japan: 'Jepang', europe: 'Eropa', usa: 'Amerika', other: 'Lainnya' }
+  return map[c] || c
+}
+
+function formatType(t: string) {
+  const map: any = { road: 'Road Bike', track: 'Track/Fixie', mtb: 'MTB/ATB', city: 'City/Commuter', touring: 'Touring', bmx: 'BMX' }
+  return map[t] || t
+}
+
+// Helper: Format kategori
+function formatCategory(cat: string) {
+  if (!cat) return ''
+  if (cat === 'full-bike') return 'Full Bike'
+  return cat.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+}
+
+// Logic Tombol WhatsApp
+const isAvailable = item.status === 'available'
+const cleanPhone = item.sellerPhone?.replace(/[^0-9]/g, '') || ''
+const waMessage = `Halo ${item.sellerName || 'Penjual'}, saya tertarik dengan part ini di AJGR.cc Marketplace:%0A%0A📦 *${item.title}*%0A💰 ${formatRupiah(item.price)}%0A🔗 ${Astro.request.url}%0A%0AApakah masih tersedia? Terima kasih!`
+const waLink = `https://wa.me/${cleanPhone}?text=${waMessage}`
+---
+
+<Layout settings={settings}>
+  <!-- BREADCRUMB -->
+  <nav style="padding: 2rem 0; border-bottom: 1px solid var(--border, #E5E5E5);">
+    <a href="/marketplace" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); text-decoration: none;">
+      ← Back to Marketplace
+    </a>
+  </nav>
+
+  <section style="padding: 4rem 0 6rem; display: grid; grid-template-columns: 1.2fr 1fr; gap: 4rem; align-items: start;">
+    
+    <!-- LEFT: IMAGES -->
+    <div>
+      <!-- Main Image -->
+      <div style="aspect-ratio: 4/3; background: #F0F0F0; overflow: hidden; margin-bottom: 1rem; border: 1px solid var(--border, #E5E5E5);">
+        {item.images?.[0] ? (
+          <img src={urlFor(item.images[0]).width(1000).url()} alt={item.title} style="width: 100%; height: 100%; object-fit: cover;" />
+        ) : (
+          <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; background: linear-gradient(135deg, #C84B8E 0%, #E8C547 100%);">
+            <span style="font-size: 5rem; color: white;">🔧</span>
+          </div>
+        )}
+      </div>
+      
+      <!-- Gallery Thumbnails -->
+      {item.images && item.images.length > 1 && (
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem;">
+          {item.images.slice(1).map((img: any) => (
+            <div style="aspect-ratio: 1/1; background: #F0F0F0; overflow: hidden; border: 1px solid var(--border, #E5E5E5);">
+              <img src={urlFor(img).width(200).url()} alt="" style="width: 100%; height: 100%; object-fit: cover;" />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+
+    <!-- RIGHT: INFO & CTA -->
+    <div>
+      <!-- Status Badge -->
+      <div style="display: inline-block; background: {getStatusColor(item.status)}; color: white; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; padding: 0.4rem 1rem; margin-bottom: 1.5rem; border-radius: 2px;">
+        {formatStatus(item.status)}
+      </div>
+
+      <span style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); display: block; margin-bottom: 0.5rem;">
+        {formatCategory(item.category)} {item.brand ? `· ${item.brand}` : ''}
+      </span>
+
+      <h1 style="font-family: 'Space Grotesk', sans-serif; font-size: clamp(2rem, 4vw, 3rem); font-weight: 600; letter-spacing: -0.03em; margin-bottom: 1rem; line-height: 1.1;">
+        {item.title}
+      </h1>
+
+      <p style="font-size: 2.5rem; font-weight: 700; color: var(--text, #111); margin-bottom: 2rem;">
+        {formatRupiah(item.price)}
+      </p>
+
+      <!-- Spesifikasi Singkat -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1.5rem; background: #FAFAFA; border: 1px solid var(--border, #E5E5E5); margin-bottom: 2rem;">
+        {item.condition && (
+          <div>
+            <p style="font-size: 0.7rem; text-transform: uppercase; color: #999; margin-bottom: 0.25rem;">Kondisi</p>
+            <p style="font-weight: 500; font-size: 0.95rem;">{item.condition}</p>
+          </div>
+        )}
+        {item.year && (
+          <div>
+            <p style="font-size: 0.7rem; text-transform: uppercase; color: #999; margin-bottom: 0.25rem;">Tahun</p>
+            <p style="font-weight: 500; font-size: 0.95rem;">{item.year}</p>
+          </div>
+        )}
+        {item.sellerLocation && (
+          <div style="grid-column: 1 / -1;">
+            <p style="font-size: 0.7rem; text-transform: uppercase; color: #999; margin-bottom: 0.25rem;">Lokasi</p>
+            <p style="font-weight: 500; font-size: 0.95rem;"> {item.sellerLocation}</p>
+          </div>
+        )}
+      </div>
+
+      <!-- Deskripsi -->
+      {item.description && (
+        <div style="margin-bottom: 2rem;">
+          <h3 style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); margin-bottom: 0.75rem;">Deskripsi</h3>
+          <p style="font-size: 1rem; line-height: 1.7; color: var(--text, #111); white-space: pre-wrap;">{item.description}</p>
+        </div>
+      )}
+
+      <!-- Info Penjual -->
+      <div style="padding: 1.5rem; border: 1px solid var(--border, #E5E5E5); margin-bottom: 2rem;">
+        <h3 style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); margin-bottom: 0.75rem;">Penjual</h3>
+        <p style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.25rem;">{item.sellerName || 'Anonim'}</p>
+        <p style="font-size: 0.9rem; color: var(--text-muted, #666);">📱 {item.sellerPhone ? `+${item.sellerPhone}` : '-'}</p>
+      </div>
+
+      <!-- CTA WHATSAPP -->
+      {isAvailable ? (
+        <a href={waLink} target="_blank" rel="noopener noreferrer"
+           style="display: block; width: 100%; text-align: center; font-family: 'Space Grotesk', sans-serif; font-size: 1rem; font-weight: 600; color: white; background: #25D366; text-decoration: none; padding: 1.25rem; transition: all 0.2s ease; border-radius: 4px;"
+           onmouseover="this.style.backgroundColor='#128C7E'; this.style.transform='translateY(-2px)'"
+           onmouseout="this.style.backgroundColor='#25D366'; this.style.transform='translateY(0)'">
+           💬 Hubungi Penjual via WhatsApp
+        </a>
+      ) : (
+        <div style="display: block; width: 100%; text-align: center; font-family: 'Space Grotesk', sans-serif; font-size: 1rem; font-weight: 600; color: #999; background: #F0F0F0; padding: 1.25rem; border-radius: 4px; cursor: not-allowed;">
+          {item.status === 'sold' ? '🔴 Part ini sudah terjual' : '🟡 Part ini sedang di-reserved'}
+        </div>
+      )}
+      
+      <p style="text-align: center; font-size: 0.75rem; color: var(--text-muted, #666); margin-top: 1rem;">
+        Transaksi dilakukan langsung dengan penjual. AJGR.cc tidak memproses pembayaran.
+      </p>
+    </div>
+  </section>
+
+  <!-- FITUR: REFERENSI KATALOG (RELATED BIKE) -->
+  {item.relatedBike && (
+    <section style="padding: 4rem 0; border-top: 1px solid var(--border, #E5E5E5);">
+      <div style="margin-bottom: 2rem;">
+        <span style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); display: block; margin-bottom: 0.5rem;">
+           COCOK UNTUK
+        </span>
+        <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.75rem; font-weight: 600; letter-spacing: -0.02em; color: var(--text, #111);">
+          Sepeda Terkait di Katalog
+        </h2>
+        <p style="font-size: 0.95rem; color: var(--text-muted, #666); margin-top: 0.5rem;">
+          Part ini cocok atau kompatibel dengan sepeda berikut yang ada di katalog AJGR.cc
+        </p>
+      </div>
+
+      <a href={`/archive/${item.relatedBike.slug.current}`} 
+         style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 2rem; border: 1px solid var(--border, #E5E5E5); padding: 2rem; text-decoration: none; color: inherit; transition: all 0.3s ease; background: #FAFAFA;"
+         onmouseover="this.style.backgroundColor='#F0F0F0'; this.style.borderColor='var(--accent, #C84B8E)'"
+         onmouseout="this.style.backgroundColor='#FAFAFA'; this.style.borderColor='var(--border, #E5E5E5)'">
+        
+        <!-- Foto Sepeda -->
+        <div style="aspect-ratio: 4/3; background: #F0F0F0; overflow: hidden;">
+          {item.relatedBike.mainImage ? (
+            <img src={urlFor(item.relatedBike.mainImage).width(600).url()} alt={item.relatedBike.title} style="width: 100%; height: 100%; object-fit: cover;" />
+          ) : (
+            <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; background: linear-gradient(135deg, #C84B8E 0%, #E8C547 100%);">
+              <span style="font-size: 3rem; color: white;">🚲</span>
+            </div>
+          )}
+        </div>
+
+        <!-- Info Sepeda -->
+        <div style="display: flex; flex-direction: column; justify-content: center;">
+          <span style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); margin-bottom: 0.5rem;">
+            {item.relatedBike.year} · {formatCountry(item.relatedBike.country)} · {formatType(item.relatedBike.type)}
+          </span>
+          <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 1rem; color: var(--text, #111);">
+            {item.relatedBike.title}
+          </h3>
+          <p style="font-size: 0.85rem; color: var(--text-muted, #666); margin-bottom: 1.5rem;">
+            Lihat spesifikasi lengkap, cerita, dan foto sepeda ini di katalog AJGR.cc
+          </p>
+          <span style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent, #C84B8E); display: inline-flex; align-items: center; gap: 0.5rem;">
+            Lihat di Katalog →
+          </span>
+        </div>
+      </a>
+    </section>
+  )}
+</Layout>

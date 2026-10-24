@@ -1,0 +1,139 @@
+---
+import Layout from '../layouts/Layout.astro'
+import client from '../lib/sanity'
+import { urlFor, getSiteSettings } from '../lib/sanity'
+
+const settings = await getSiteSettings()
+
+// Ambil pengaturan section journal dari settings
+const journalSettings = settings?.journalSection || {}
+const journalLabel = journalSettings.label || '03 — STORIES'
+const journalTitle = journalSettings.title || 'The Journal'
+const journalDescription = journalSettings.description || 'Catatan perjalanan, cerita dari jalanan, dan pemikiran tentang dunia sepeda dari anggota AJGR.cc.'
+
+const posts = await client.fetch(`*[_type == "post"] | order(publishedAt desc){
+  title, slug, category, publishedAt, mainImage, body
+}`)
+---
+
+<Layout settings={settings}>
+  
+  <section style="padding: 6rem 0 4rem; border-bottom: 1px solid var(--border, #E5E5E5);">
+    <span style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); margin-bottom: 1rem; display: block;">
+      {journalLabel}
+    </span>
+    <h1 style="font-family: 'Space Grotesk', sans-serif; font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 600; letter-spacing: -0.03em; margin-top: 1rem; color: var(--text, #111);">
+      {journalTitle}
+    </h1>
+    <p style="margin-top: 1.5rem; font-size: 1.125rem; color: var(--text-muted, #666); max-width: 600px; line-height: 1.6;">
+      {journalDescription}
+    </p>
+  </section>
+
+  <section style="padding: 2rem 0 6rem; max-width: 100%; overflow: hidden;">
+    {posts.length > 0 ? (
+      <div style="display: flex; flex-direction: column;">
+        {posts.map((post: any, index: number) => (
+          <article class="article-item">
+            
+            <!-- GAMBAR DI SEBELAH KIRI -->
+            {post.mainImage && (
+              <div class="article-image">
+                <img 
+                  src={urlFor(post.mainImage).width(400).url()} 
+                  alt={post.title} 
+                  style="width: 100%; height: 100%; object-fit: cover;"
+                  loading="lazy"
+                />
+              </div>
+            )}
+
+            <!-- Konten di Sebelah Kanan -->
+            <div class="article-content">
+              <!-- Meta Info (Kategori & Tanggal) -->
+              <div style="margin-bottom: 1rem;">
+                <span style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); margin-bottom: 0.75rem; display: block;">
+                  {post.category}
+                </span>
+                <p style="font-size: 0.8rem; color: var(--text-muted, #666); font-variant-numeric: tabular-nums;">
+                  {new Date(post.publishedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </p>
+              </div>
+
+              <!-- Judul & Excerpt -->
+              <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: clamp(1.5rem, 4vw, 2rem); font-weight: 600; letter-spacing: -0.02em; margin-bottom: 1rem; line-height: 1.15; color: var(--text, #111);">
+                {post.title}
+              </h2>
+              <p style="color: var(--text-muted, #666); line-height: 1.6; margin-bottom: 1.5rem; max-width: 100%; overflow-wrap: break-word; word-wrap: break-word; word-break: break-word; hyphens: auto;">
+                {post.body?.[0]?.children?.map((c: any) => c.text).join('').substring(0, 180)}...
+              </p>
+              <a href={`/journal/${post.slug.current}`} 
+                 style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text, #111); text-decoration: none; border-bottom: 1px solid var(--text, #111); padding-bottom: 2px; transition: all 0.2s; display: inline-block;"
+                 onmouseover="this.style.color='var(--accent, #C84B8E)'; this.style.borderColor='var(--accent, #C84B8E)'"
+                 onmouseout="this.style.color='var(--text, #111)'; this.style.borderColor='var(--text, #111)'">
+                Read Article →
+              </a>
+            </div>
+          </article>
+        ))}
+      </div>
+    ) : (
+      <div style="text-align: center; padding: 6rem 2rem; border: 1px solid var(--border, #E5E5E5);">
+        <p style="font-family: 'Space Grotesk', sans-serif; font-size: 2rem; font-weight: 600; color: var(--text, #111); margin-bottom: 0.5rem;">Coming Soon</p>
+        <p style="color: var(--text-muted, #666); font-size: 0.9rem;">Belum ada artikel yang dipublikasikan.</p>
+      </div>
+    )}
+  </section>
+
+</Layout>
+
+<style>
+  /* Layout Mobile: Gambar di atas, konten di bawah */
+  .article-item {
+    display: flex;
+    flex-direction: column;
+    padding: 2rem 0;
+    border-bottom: 1px solid var(--border, #E5E5E5);
+    transition: background 0.3s;
+    gap: 1.5rem;
+  }
+  
+  .article-image {
+    width: 100%;
+    aspect-ratio: 16/10;
+    background: #F5F5F5;
+    overflow: hidden;
+    border-radius: 4px;
+  }
+  
+  .article-content {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+  }
+  
+  .article-item:last-child {
+    border-bottom: none;
+  }
+  
+  .article-item:hover {
+    background: #F8F8F8;
+  }
+
+  /* Layout Desktop: Gambar di KIRI, konten di KANAN */
+  @media (min-width: 768px) {
+    .article-item {
+      display: grid;
+      grid-template-columns: 300px 1fr; /* Gambar 300px, konten sisanya */
+      gap: 3rem;
+      padding: 3rem 0;
+    }
+    
+    .article-image {
+      aspect-ratio: 4/3; /* Lebih persegi untuk layout horizontal */
+      height: 100%;
+    }
+  }
+</style>

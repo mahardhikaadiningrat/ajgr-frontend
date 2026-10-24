@@ -1,0 +1,212 @@
+---
+import Layout from '../layouts/Layout.astro'
+import client from '../lib/sanity'
+import { urlFor, getSiteSettings } from '../lib/sanity'
+
+const settings = await getSiteSettings()
+const eventsSettings = settings?.eventsSection || {}
+const eventsLabel = eventsSettings.label || '05 — CALENDAR'
+const eventsTitle = eventsSettings.title || 'Upcoming Events'
+const eventsDescription = eventsSettings.description || 'Agenda kegiatan, gowes bersama, dan event komunitas AJGR.cc.'
+
+// Ambil semua event, urutkan dari tanggal terdekat
+const events = await client.fetch(`*[_type == "event"] | order(startDate asc){
+  title,
+  slug,
+  startDate,
+  endDate,
+  category,
+  location,
+  description,
+  poster,
+  status,
+  price,
+  quota,
+  registeredCount,
+  registrationLink,
+  contactPIC,
+  isFeatured
+}`)
+
+// Fungsi helper untuk format tanggal
+function formatDate(dateStr) {
+  const date = new Date(dateStr)
+  return date.toLocaleDateString('id-ID', { 
+    day: 'numeric', 
+    month: 'long', 
+    year: 'numeric' 
+  })
+}
+
+// Fungsi helper untuk format waktu
+function formatTime(dateStr) {
+  const date = new Date(dateStr)
+  return date.toLocaleTimeString('id-ID', { 
+    hour: '2-digit', 
+    minute: '2-digit' 
+  })
+}
+
+// Fungsi helper untuk status badge
+function getStatusBadge(status) {
+  const statusMap = {
+    'coming-soon': { label: 'COMING SOON', color: '#E8C547', bg: 'rgba(232, 197, 71, 0.1)' },
+    'open': { label: 'OPEN REGISTRATION', color: '#22C55E', bg: 'rgba(34, 197, 94, 0.1)' },
+    'full': { label: 'FULL', color: '#EF4444', bg: 'rgba(239, 68, 68, 0.1)' },
+    'finished': { label: 'SELESAI', color: '#6B7280', bg: 'rgba(107, 114, 128, 0.1)' },
+    'cancelled': { label: 'DIBATALKAN', color: '#6B7280', bg: 'rgba(107, 114, 128, 0.1)' },
+  }
+  return statusMap[status] || statusMap['coming-soon']
+}
+---
+
+<Layout settings={settings}>
+  <!-- HEADER SECTION -->
+  <section style="padding: 6rem 0 4rem; border-bottom: 1px solid var(--border, #E5E5E5);">
+    <span style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); margin-bottom: 1rem; display: block;">
+      {eventsLabel}
+    </span>
+    <h1 style="font-family: 'Space Grotesk', sans-serif; font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 600; letter-spacing: -0.03em; margin-top: 1rem; color: var(--text, #111111);">
+      {eventsTitle}
+    </h1>
+    <p style="margin-top: 1.5rem; font-size: 1.125rem; color: var(--text-muted, #666666); max-width: 600px; line-height: 1.6;">
+      {eventsDescription}
+    </p>
+  </section>
+
+  <!-- EVENTS GRID -->
+  <section style="padding: 4rem 0 6rem;">
+    {events.length > 0 ? (
+      <div style="display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--border, #E5E5E5); border-left: 1px solid var(--border, #E5E5E5);">
+        {events.map((event) => {
+          const badge = getStatusBadge(event.status)
+          return (
+            <article style="border-right: 1px solid var(--border, #E5E5E5); border-bottom: 1px solid var(--border, #E5E5E5); padding: 3rem; display: grid; grid-template-columns: 280px 1fr; gap: 3rem; align-items: start; transition: background-color 0.3s ease;"
+                     onmouseover="this.style.backgroundColor='#F8F8F8'" 
+                     onmouseout="this.style.backgroundColor='transparent'">
+              
+              <!-- Left: Poster & Date -->
+              <div>
+                {event.poster ? (
+                  <div style="aspect-ratio: 4/3; background: #F0F0F0; overflow: hidden; margin-bottom: 1.5rem;">
+                    <img 
+                      src={urlFor(event.poster).width(400).url()} 
+                      alt={event.title}
+                      style="width: 100%; height: 100%; object-fit: cover;"
+                    />
+                  </div>
+                ) : (
+                  <div style="aspect-ratio: 4/3; background: linear-gradient(135deg, #C84B8E 0%, #E8C547 100%); display: flex; align-items: center; justify-content: center; margin-bottom: 1.5rem;">
+                    <span style="font-size: 3rem; color: white;">📅</span>
+                  </div>
+                )}
+                
+                <div style="padding: 1rem; background: #FAFAFA; border: 1px solid var(--border, #E5E5E5);">
+                  <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 0.5rem;">Tanggal</p>
+                  <p style="font-family: 'Space Grotesk', sans-serif; font-size: 1.1rem; font-weight: 600; color: #111; margin-bottom: 0.25rem;">
+                    {formatDate(event.startDate)}
+                  </p>
+                  <p style="font-size: 0.9rem; color: #666;">
+                    {formatTime(event.startDate)} WITA
+                  </p>
+                </div>
+              </div>
+
+              <!-- Right: Content -->
+              <div>
+                <!-- Status Badge -->
+                <span style="display: inline-block; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.15em; color: {badge.color}; background: {badge.bg}; padding: 0.4rem 0.8rem; margin-bottom: 1rem;">
+                  {badge.label}
+                </span>
+
+                <!-- Category -->
+                <p style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); margin-bottom: 0.75rem;">
+                  {event.category || 'EVENT'}
+                </p>
+
+                <!-- Title (SUDAH DIUPDATE MENJADI LINK) -->
+                <a href={`/events/${event.slug.current}`} style="text-decoration: none; color: inherit; display: block;">
+                  <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: 2rem; font-weight: 600; letter-spacing: -0.02em; color: var(--text, #111111); margin-bottom: 1rem; line-height: 1.2; transition: color 0.2s;"
+                      onmouseover="this.style.color='var(--accent, #C84B8E)'"
+                      onmouseout="this.style.color='var(--text, #111111)'">
+                    {event.title}
+                  </h2>
+                </a>
+
+                <!-- Description -->
+                {event.description && (
+                  <p style="font-size: 1rem; color: var(--text-muted, #666666); line-height: 1.7; margin-bottom: 1.5rem; max-width: 600px;">
+                    {event.description}
+                  </p>
+                )}
+
+                <!-- Info Grid -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 2rem; padding: 1.5rem; background: #FAFAFA; border: 1px solid var(--border, #E5E5E5);">
+                  {event.location && (
+                    <div>
+                      <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 0.25rem;">Lokasi</p>
+                      <p style="font-size: 0.9rem; color: #111; font-weight: 500;">{event.location}</p>
+                    </div>
+                  )}
+                  {event.price && (
+                    <div>
+                      <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 0.25rem;">Biaya</p>
+                      <p style="font-size: 0.9rem; color: #111; font-weight: 500;">{event.price}</p>
+                    </div>
+                  )}
+                  {event.quota && (
+                    <div>
+                      <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 0.25rem;">Kuota</p>
+                      <p style="font-size: 0.9rem; color: #111; font-weight: 500;">
+                        {event.registeredCount || 0} / {event.quota} peserta
+                      </p>
+                    </div>
+                  )}
+                  {event.contactPIC && (
+                    <div>
+                      <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 0.25rem;">Kontak PIC</p>
+                      <p style="font-size: 0.9rem; color: #111; font-weight: 500;">{event.contactPIC}</p>
+                    </div>
+                  )}
+                </div>
+
+                <!-- Action Buttons -->
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                  {event.registrationLink && event.status !== 'finished' && event.status !== 'cancelled' && (
+                    <a 
+                      href={event.registrationLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style="display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: white; background: var(--text, #111111); text-decoration: none; padding: 0.9rem 1.5rem; transition: all 0.2s ease;"
+                      onmouseover="this.style.backgroundColor='var(--accent, #C84B8E)'"
+                      onmouseout="this.style.backgroundColor='var(--text, #111111)'"
+                    >
+                      Daftar Sekarang →
+                    </a>
+                  )}
+                  {event.mapsLink && (
+                    <a 
+                      href={event.mapsLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style="display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text, #111111); text-decoration: none; border: 1px solid var(--text, #111111); padding: 0.9rem 1.5rem; transition: all 0.2s ease;"
+                      onmouseover="this.style.backgroundColor='var(--text, #111111)'; this.style.color='#FAFAFA'"
+                      onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--text, #111111)'"
+                    >
+                      📍 Lihat Lokasi
+                    </a>
+                  )}
+                </div>
+              </div>
+            </article>
+          )
+        })}
+      </div>
+    ) : (
+      <div style="text-align: center; padding: 6rem 2rem; border: 1px solid var(--border, #E5E5E5);">
+        <p style="font-family: 'Space Grotesk', sans-serif; font-size: 2rem; font-weight: 600; color: var(--text, #111111); margin-bottom: 0.5rem;">Belum Ada Event</p>
+        <p style="color: var(--text-muted, #666666); font-size: 0.9rem;">Jadwal kegiatan akan segera diumumkan. Stay tuned!</p>
+      </div>
+    )}
+  </section>
+</Layout>

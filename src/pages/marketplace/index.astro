@@ -1,0 +1,183 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro'
+import client from '../../lib/sanity'
+import { urlFor, getSiteSettings } from '../../lib/sanity'
+
+const settings = await getSiteSettings()
+// Ambil pengaturan section marketplace dari settings
+const mpSettings = settings?.marketplaceSection || {}
+const mpLabel = mpSettings.label || '04 — MARKETPLACE'
+const mpTitle = mpSettings.title || 'The Marketplace'
+const mpDescription = mpSettings.description || 'Jual-beli part sepeda vintage dari anggota AJGR.cc. Hubungi penjual langsung via WhatsApp.'
+
+// Ambil filter dari URL
+const url = new URL(Astro.request.url)
+const categoryFilter = url.searchParams.get('category') || ''
+const statusFilter = url.searchParams.get('status') || 'available'
+
+// Ambil daftar kategori unik
+const allCategories = await client.fetch(`array::unique(*[_type == "marketplace" && defined(category)].category) | order(@ asc)`)
+
+// Bangun query filter
+let filterQuery = `*[_type == "marketplace"`
+const filterParams: any = {}
+
+if (categoryFilter) {
+  filterQuery += ` && category == $category`
+  filterParams.category = categoryFilter
+}
+
+if (statusFilter) {
+  filterQuery += ` && status == $status`
+  filterParams.status = statusFilter
+}
+
+filterQuery += `] | order(_createdAt desc){ 
+  title, slug, category, brand, price, status, sellerLocation, images
+}`
+
+const items = await client.fetch(filterQuery, filterParams)
+
+// Helper: Format Rupiah
+function formatRupiah(angka: number) {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka)
+}
+
+// Helper: Warna status
+function getStatusColor(status: string) {
+  if (status === 'available') return '#22C55E'
+  if (status === 'reserved') return '#EAB308'
+  return '#EF4444'
+}
+
+function formatStatus(status: string) {
+  const map: any = { available: 'Tersedia', reserved: 'Reserved', sold: 'Terjual' }
+  return map[status] || status
+}
+
+// Helper: Format kategori
+function formatCategory(cat: string) {
+  if (!cat) return ''
+  if (cat === 'full-bike') return 'Full Bike'
+  return cat.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+}
+---
+
+<Layout settings={settings}>
+  <!-- HEADER -->
+    <section style="padding: 6rem 0 4rem; border-bottom: 1px solid var(--border, #E5E5E5);">
+    <span style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); margin-bottom: 1rem; display: block;">
+        {mpLabel}
+    </span>
+    <h1 style="font-family: 'Space Grotesk', sans-serif; font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 600; letter-spacing: -0.03em; margin-top: 1rem; color: var(--text, #111);">
+        {mpTitle}
+    </h1>
+    <p style="margin-top: 1.5rem; font-size: 1.125rem; color: var(--text-muted, #666); max-width: 600px; line-height: 1.6;">
+        {mpDescription}
+    </p>
+    </section>
+
+  <!-- FILTER SECTION -->
+  <section style="padding: 2rem 0; border-bottom: 1px solid var(--border, #E5E5E5); background: #FAFAFA;">
+    <form method="GET" action="/marketplace" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+      
+      <div style="flex: 1; min-width: 200px;">
+        <label style="display: block; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); margin-bottom: 0.5rem;">
+          Kategori
+        </label>
+        <select name="category" style="width: 100%; padding: 0.75rem 1rem; font-family: 'Space Grotesk', sans-serif; font-size: 0.9rem; border: 1px solid var(--border, #E5E5E5); background: white; cursor: pointer;">
+          <option value="">Semua Kategori</option>
+          {allCategories.map((cat: string) => (
+            <option value={cat} selected={categoryFilter === cat}>
+              {formatCategory(cat)}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div style="flex: 1; min-width: 200px;">
+        <label style="display: block; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); margin-bottom: 0.5rem;">
+          Status
+        </label>
+        <select name="status" style="width: 100%; padding: 0.75rem 1rem; font-family: 'Space Grotesk', sans-serif; font-size: 0.9rem; border: 1px solid var(--border, #E5E5E5); background: white; cursor: pointer;">
+          <option value="available" selected={statusFilter === 'available'}>Hanya Tersedia</option>
+          <option value="reserved" selected={statusFilter === 'reserved'}>Hanya Reserved</option>
+          <option value="sold" selected={statusFilter === 'sold'}>Hanya Terjual</option>
+          <option value="" selected={statusFilter === ''}>Semua Status</option>
+        </select>
+      </div>
+
+      <div style="display: flex; gap: 0.5rem;">
+        <button type="submit" style="font-family: 'Space Grotesk', sans-serif; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: white; background: var(--text, #111); border: none; padding: 0.75rem 1.5rem; cursor: pointer;">
+          Filter
+        </button>
+        {(categoryFilter || statusFilter) && (
+          <a href="/marketplace" style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text, #111); text-decoration: none; border: 1px solid var(--text, #111); padding: 0.75rem 1.5rem;">
+            Reset
+          </a>
+        )}
+      </div>
+    </form>
+  </section>
+
+  <!-- GRID -->
+  <section style="padding: 4rem 0 6rem;">
+    {items.length > 0 ? (
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 2rem;">
+        {items.map((item: any) => (
+          <article style="border: 1px solid var(--border, #E5E5E5); display: flex; flex-direction: column; position: relative;">
+            
+            <!-- Status Badge -->
+            <div style="position: absolute; top: 1rem; right: 1rem; background: {getStatusColor(item.status)}; color: white; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; padding: 0.25rem 0.75rem; border-radius: 2px; z-index: 10;">
+              {formatStatus(item.status)}
+            </div>
+
+            <!-- Image -->
+            <div style="aspect-ratio: 4/3; background: #F0F0F0; overflow: hidden;">
+              {item.images?.[0] ? (
+                <img src={urlFor(item.images[0]).width(600).url()} alt={item.title} style="width: 100%; height: 100%; object-fit: cover;" />
+              ) : (
+                <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; background: linear-gradient(135deg, #C84B8E 0%, #E8C547 100%);">
+                  <span style="font-size: 3rem;"></span>
+                </div>
+              )}
+            </div>
+
+            <!-- Content -->
+            <div style="padding: 1.5rem; flex: 1; display: flex; flex-direction: column;">
+              <span style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); margin-bottom: 0.5rem;">
+                {formatCategory(item.category)} {item.brand ? `· ${item.brand}` : ''}
+              </span>
+              
+              <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; line-height: 1.3;">
+                {item.title}
+              </h3>
+              
+              <p style="font-size: 1.5rem; font-weight: 700; color: var(--text, #111); margin-bottom: 0.5rem;">
+                {formatRupiah(item.price)}
+              </p>
+              
+              <p style="font-size: 0.85rem; color: var(--text-muted, #666); margin-bottom: 1.5rem;">
+                📍 {item.sellerLocation || 'Lokasi tidak disebutkan'}
+              </p>
+
+              <a href={`/marketplace/${item.slug.current}`} 
+                 style="margin-top: auto; text-align: center; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text, #111); text-decoration: none; border: 1px solid var(--text, #111); padding: 0.75rem; transition: all 0.2s;"
+                 onmouseover="this.style.backgroundColor='var(--text, #111)'; this.style.color='#FAFAFA'"
+                 onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--text, #111)'">
+                Lihat Detail & Hubungi →
+              </a>
+            </div>
+          </article>
+        ))}
+      </div>
+    ) : (
+      <div style="text-align: center; padding: 6rem 2rem; border: 1px solid var(--border, #E5E5E5);">
+        <p style="font-family: 'Space Grotesk', sans-serif; font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem;">Belum ada part di kategori ini</p>
+        <a href="/marketplace" style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent, #C84B8E); text-decoration: none; border-bottom: 1px solid var(--accent, #C84B8E);">Reset Filter →</a>
+      </div>
+    )}
+  </section>
+</Layout>
