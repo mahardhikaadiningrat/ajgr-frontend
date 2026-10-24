@@ -17,7 +17,7 @@ const url = new URL(Astro.request.url)
 const bike1Slug = url.searchParams.get('bike1')
 const bike2Slug = url.searchParams.get('bike2')
 
-// Ambil data kedua bike jika slug ada (DITAMBAHKAN brand->{name})
+// Ambil data kedua bike jika slug ada
 const bike1 = bike1Slug ? await client.fetch(`*[_type == "bike" && slug.current == $slug][0]{
   title, slug, year, country, type, frameMaterial, frameSize, weight,
   groupset, barSet, stem, wheelset, spokes, tireSize,
@@ -50,7 +50,7 @@ function formatCondition(c) {
   return map[c] || c || '-'
 }
 
-// Daftar field yang akan dibandingkan (DITAMBAHKAN Brand di urutan pertama)
+// Daftar field yang akan dibandingkan
 const compareFields = [
   { label: 'Brand', key: 'brand', format: (v) => v?.name || '-' },
   { label: 'Tahun', key: 'year', format: (v) => v || '-' },
@@ -59,7 +59,7 @@ const compareFields = [
   { label: 'Kondisi', key: 'condition', format: formatCondition },
   { label: 'Material Frame', key: 'frameMaterial' },
   { label: 'Ukuran Frame', key: 'frameSize' },
-  { label: 'Berat', key: 'weight', format: (v) => v ? `${v} kg` : '-' },
+  { label: 'Berat', key: 'weight', format: (v) => v ? v + ' kg' : '-' },
   { label: 'Groupset', key: 'groupset' },
   { label: 'Crankset', key: 'crankset' },
   { label: 'Cassette / Freewheel', key: 'cassette' },
@@ -83,6 +83,79 @@ const compareFields = [
 ---
 
 <Layout settings={settings}>
+  
+  <style>
+    /* Cegah horizontal scroll */
+    html, body {
+      overflow-x: hidden;
+      max-width: 100vw;
+    }
+    
+    * {
+      box-sizing: border-box;
+    }
+    
+    section {
+      max-width: 100vw;
+      overflow: hidden;
+    }
+    
+    /* Mobile responsive */
+    @media (max-width: 768px) {
+      form {
+        grid-template-columns: 1fr !important;
+        gap: 1.5rem !important;
+      }
+      
+      .bike-header-grid {
+        grid-template-columns: 1fr !important;
+        gap: 2rem !important;
+      }
+      
+      .comparison-table > div {
+        grid-template-columns: 1fr !important;
+        border-bottom: 2px solid var(--border, #E5E5E5) !important;
+      }
+      
+      .comparison-table > div > div:first-child {
+        border-right: none !important;
+        border-bottom: 1px solid var(--border, #E5E5E5);
+        background: #f5f5f5;
+        font-size: 0.8rem !important;
+      }
+      
+      .comparison-table > div > div:not(:first-child) {
+        border-right: none !important;
+        padding: 0.75rem 1rem !important;
+        font-size: 0.9rem !important;
+      }
+      
+      .comparison-table > div > div:not(:first-child)::after {
+        content: attr(data-brand);
+        color: var(--accent, #C84B8E);
+        font-size: 0.75rem;
+        margin-left: 0.5rem;
+        font-weight: 500;
+      }
+      
+      .share-buttons {
+        flex-direction: column !important;
+      }
+      
+      .share-buttons a {
+        width: 100% !important;
+        justify-content: center !important;
+      }
+    }
+    
+    /* Desktop - hide brand attribute */
+    @media (min-width: 769px) {
+      .comparison-table > div > div:not(:first-child)::after {
+        display: none;
+      }
+    }
+  </style>
+
   <!-- HEADER -->
   <section style="padding: 6rem 0 4rem; border-bottom: 1px solid var(--border, #E5E5E5);">
     <span style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); margin-bottom: 1rem; display: block;">
@@ -138,7 +211,7 @@ const compareFields = [
     <section style="padding: 4rem 0 6rem;">
       
       <!-- Header dengan foto -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 3rem;">
+      <div class="bike-header-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 3rem;">
         <div style="text-align: center;">
           {bike1.mainImage && (
             <div style="aspect-ratio: 4/3; background: #F0F0F0; overflow: hidden; margin-bottom: 1rem;">
@@ -146,7 +219,6 @@ const compareFields = [
             </div>
           )}
           <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.5rem; font-weight: 600; color: var(--text, #111); margin-bottom: 0.5rem;">{bike1.title}</h2>
-          <!-- DITAMBAHKAN brand?.name di sini -->
           <p style="font-size: 0.85rem; color: var(--text-muted, #666);">{bike1.brand?.name || '-'} · {bike1.year} · {formatCountry(bike1.country)}</p>
           <a href={`/archive/${bike1.slug.current}`} style="font-size: 0.75rem; color: var(--accent, #C84B8E); text-decoration: none; margin-top: 0.5rem; display: inline-block;">Lihat Detail →</a>
         </div>
@@ -157,20 +229,21 @@ const compareFields = [
             </div>
           )}
           <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.5rem; font-weight: 600; color: var(--text, #111); margin-bottom: 0.5rem;">{bike2.title}</h2>
-          <!-- DITAMBAHKAN brand?.name di sini -->
           <p style="font-size: 0.85rem; color: var(--text-muted, #666);">{bike2.brand?.name || '-'} · {bike2.year} · {formatCountry(bike2.country)}</p>
           <a href={`/archive/${bike2.slug.current}`} style="font-size: 0.75rem; color: var(--accent, #C84B8E); text-decoration: none; margin-top: 0.5rem; display: inline-block;">Lihat Detail →</a>
         </div>
       </div>
 
       <!-- Tabel Perbandingan -->
-      <div style="border: 1px solid var(--border, #E5E5E5);">
-        {compareFields.map((field, index) => {
+      <div class="comparison-table" style="border: 1px solid var(--border, #E5E5E5);">
+        {compareFields.map((field) => {
           const val1 = bike1[field.key]
           const val2 = bike2[field.key]
           const formatted1 = field.format ? field.format(val1) : (val1 || '-')
           const formatted2 = field.format ? field.format(val2) : (val2 || '-')
           const isDifferent = String(val1) !== String(val2)
+          const brand1 = bike1.brand?.name || ''
+          const brand2 = bike2.brand?.name || ''
           
           return (
             <div style={`display: grid; grid-template-columns: 1fr 1fr 1fr; border-bottom: 1px solid var(--border, #E5E5E5); ${isDifferent ? 'background: #FAFAFA;' : ''}`}>
@@ -178,12 +251,18 @@ const compareFields = [
                 {field.label}
                 {isDifferent && <span style="margin-left: 0.5rem; font-size: 0.7rem;">⚡</span>}
               </div>
-              <div style="padding: 1rem 1.5rem; font-size: 0.95rem; color: var(--text, #111); font-weight: 500; border-right: 1px solid var(--border, #E5E5E5); overflow-wrap: break-word;">
-                {formatted1}
-              </div>
-              <div style="padding: 1rem 1.5rem; font-size: 0.95rem; color: var(--text, #111); font-weight: 500; overflow-wrap: break-word;">
-                {formatted2}
-              </div>
+<div 
+  data-brand={field.key !== 'brand' && brand1 ? ' (' + brand1 + ')' : ''}
+  style="padding: 1rem 1.5rem; font-size: 0.95rem; color: var(--text, #111); font-weight: 500; border-right: 1px solid var(--border, #E5E5E5); overflow-wrap: break-word; word-break: break-word;"
+>
+  {formatted1}
+</div>
+<div 
+  data-brand={field.key !== 'brand' && brand2 ? ' (' + brand2 + ')' : ''}
+  style="padding: 1rem 1.5rem; font-size: 0.95rem; color: var(--text, #111); font-weight: 500; overflow-wrap: break-word; word-break: break-word;"
+>
+  {formatted2}
+</div>
             </div>
           )
         })}
@@ -214,15 +293,15 @@ const compareFields = [
             onmouseover="this.style.backgroundColor='var(--accent, #C84B8E)'"
             onmouseout="this.style.backgroundColor='var(--text, #111)'"
           >
-            📋 Copy Link
+             Copy Link
           </button>
         </div>
 
         <!-- Share Buttons -->
-        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+        <div class="share-buttons" style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
           <a 
             id="share-whatsapp"
-            href={`https://wa.me/?text=${encodeURIComponent(`Halo! Cek perbandingan sepeda ${bike1.title} vs ${bike2.title} di AJGR.cc:\n\n${Astro.request.url}`)}`}
+            href={`https://wa.me/?text=${encodeURIComponent('Halo! Cek perbandingan sepeda ' + bike1.title + ' vs ' + bike2.title + ' di AJGR.cc:\n\n' + Astro.request.url)}`}
             target="_blank"
             rel="noopener noreferrer"
             style="display: inline-flex; align-items: center; gap: 0.5rem; font-family: 'Space Grotesk', sans-serif; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: white; background: #25D366; text-decoration: none; padding: 0.75rem 1.25rem; transition: all 0.2s ease;"
@@ -233,14 +312,14 @@ const compareFields = [
           </a>
           <a 
             id="share-twitter"
-            href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Perbandingan ${bike1.title} vs ${bike2.title} di @AJGRcc`)}&url=${encodeURIComponent(Astro.request.url)}`}
+            href={`https://twitter.com/intent/tweet?text=${encodeURIComponent('Perbandingan ' + bike1.title + ' vs ' + bike2.title + ' di @AJGRcc')}&url=${encodeURIComponent(Astro.request.url)}`}
             target="_blank"
             rel="noopener noreferrer"
             style="display: inline-flex; align-items: center; gap: 0.5rem; font-family: 'Space Grotesk', sans-serif; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: white; background: #1DA1F2; text-decoration: none; padding: 0.75rem 1.25rem; transition: all 0.2s ease;"
             onmouseover="this.style.opacity='0.9'"
             onmouseout="this.style.opacity='1'"
           >
-            𝕏 Share Twitter
+             Share Twitter
           </a>
           <a 
             id="share-facebook"
@@ -277,9 +356,36 @@ const compareFields = [
     </section>
   )}
 
-  <!-- SCRIPT UNTUK COPY LINK -->
+  <!-- SCRIPT: LOCALSTORAGE REDIRECT + COPY LINK -->
   <script is:inline>
     document.addEventListener('DOMContentLoaded', function() {
+      
+      // ==========================================
+      // 1. LOGIKA LOCALSTORAGE (Fitur Bandingkan)
+      // ==========================================
+      const storedBikes = localStorage.getItem('ajgr_compare');
+      
+      if (storedBikes) {
+        const bikes = JSON.parse(storedBikes);
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        // Jika URL belum punya parameter, tapi localStorage punya data
+        if (!urlParams.has('bike1') && !urlParams.has('bike2') && bikes.length > 0) {
+          const newUrl = new URL(window.location.href);
+          
+          // Masukkan slug dari localStorage ke URL
+          if (bikes[0]) newUrl.searchParams.set('bike1', bikes[0].slug);
+          if (bikes[1]) newUrl.searchParams.set('bike2', bikes[1].slug);
+          
+          // Redirect ke URL yang sudah lengkap agar server Astro bisa merender data
+          window.location.href = newUrl.toString();
+          return; // Stop eksekusi script di bawahnya saat sedang redirect
+        }
+      }
+
+      // ==========================================
+      // 2. LOGIKA COPY LINK (Kode Asli Anda)
+      // ==========================================
       const copyBtn = document.getElementById('copy-link-btn');
       const successMsg = document.getElementById('copy-success');
       
@@ -290,16 +396,12 @@ const compareFields = [
           try {
             await navigator.clipboard.writeText(urlToCopy);
             
-            // Tampilkan pesan sukses
             if (successMsg) {
               successMsg.style.display = 'block';
-              
-              // Ubah teks tombol sementara
               const originalText = this.innerHTML;
               this.innerHTML = '✅ Tersalin!';
               this.style.backgroundColor = '#22C55E';
               
-              // Kembalikan setelah 2 detik
               setTimeout(() => {
                 successMsg.style.display = 'none';
                 this.innerHTML = originalText;

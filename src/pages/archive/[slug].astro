@@ -22,7 +22,6 @@ if (!bike) {
 
 const settings = await getSiteSettings()
 
-// Helper: Format nama country
 function formatCountry(country) {
   const map = { japan: 'Jepang', europe: 'Eropa', usa: 'Amerika', other: 'Lainnya' }
   return map[country] || country
@@ -38,19 +37,7 @@ function formatCondition(condition) {
   return map[condition] || condition
 }
 
-// Helper: Render spec row (hanya tampilkan jika ada value)
-function specRow(label, value) {
-  if (!value) return ''
-  return `
-    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid var(--border, #E5E5E5);">
-      <dt style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666);">${label}</dt>
-      <dd style="font-size: 0.95rem; color: var(--text, #111); font-weight: 500; margin: 0;">${value}</dd>
-    </div>
-  `
-}
-
-// Build spec HTML
-const specSections = [
+const activeSections = [
   {
     title: 'Informasi Dasar',
     rows: [
@@ -66,7 +53,7 @@ const specSections = [
     rows: [
       ['Material Frame', bike.frameMaterial],
       ['Ukuran Frame', bike.frameSize],
-      ['Berat', bike.weight ? `${bike.weight} kg` : null],
+      ['Berat', bike.weight ? bike.weight + ' kg' : null],
     ]
   },
   {
@@ -113,24 +100,19 @@ const specSections = [
       ['Pedal', bike.pedals],
     ]
   },
-]
-
-// Filter hanya section yang punya minimal 1 row
-const activeSections = specSections.map(s => ({
+].map(s => ({
   ...s,
   rows: s.rows.filter(r => r[1])
 })).filter(s => s.rows.length > 0)
 ---
 
 <Layout settings={settings}>
-  <!-- BREADCRUMB -->
   <nav style="padding: 2rem 0; border-bottom: 1px solid var(--border, #E5E5E5);">
     <a href="/archive" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); text-decoration: none;">
       ← Back to Archive
     </a>
   </nav>
 
-  <!-- HERO SECTION -->
   <section style="padding: 4rem 0 3rem;">
     <span style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); margin-bottom: 1rem; display: block;">
       {bike.brand?.name || 'Unknown Brand'} · {bike.year} · {formatCountry(bike.country)} · {formatType(bike.type)}
@@ -141,12 +123,17 @@ const activeSections = specSections.map(s => ({
     </h1>
 
     <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 2rem;">
-      <a href="/compare?bike1={bike.slug.current}" 
-         style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: white; background: var(--text, #111); text-decoration: none; padding: 0.9rem 1.5rem; transition: all 0.2s ease;"
+      <button 
+         id="compare-btn"
+         data-slug={bike.slug.current}
+         data-title={bike.title}
+         type="button"
+         style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: white; background: var(--text, #111); border: none; cursor: pointer; padding: 0.9rem 1.5rem; transition: all 0.2s ease; font-family: inherit;"
          onmouseover="this.style.backgroundColor='var(--accent, #C84B8E)'"
          onmouseout="this.style.backgroundColor='var(--text, #111)'">
         ⚖️ Bandingkan Sepeda Ini
-      </a>
+      </button>
+      
       <a href="/archive" 
          style="font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text, #111); text-decoration: none; border: 1px solid var(--text, #111); padding: 0.9rem 1.5rem; transition: all 0.2s ease;"
          onmouseover="this.style.backgroundColor='var(--text, #111)'; this.style.color='#FAFAFA'"
@@ -156,10 +143,8 @@ const activeSections = specSections.map(s => ({
     </div>
   </section>
 
-  <!-- MAIN CONTENT -->
   <section style="padding: 3rem 0 6rem;">
     
-    <!-- Main Image -->
     {bike.mainImage && (
       <div style="aspect-ratio: 16/9; background: #F0F0F0; overflow: hidden; margin-bottom: 4rem;">
         <img 
@@ -170,7 +155,6 @@ const activeSections = specSections.map(s => ({
       </div>
     )}
 
-    <!-- Story Section -->
     {bike.story && (
       <div style="max-width: 720px; margin-bottom: 4rem;">
         <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 1.5rem; color: var(--text, #111);">
@@ -182,7 +166,6 @@ const activeSections = specSections.map(s => ({
       </div>
     )}
 
-    <!-- Specifications Table -->
     <div style="border-top: 1px solid var(--border, #E5E5E5); padding-top: 3rem;">
       <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: 2rem; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 2rem; color: var(--text, #111);">
         Spesifikasi Teknis
@@ -205,7 +188,6 @@ const activeSections = specSections.map(s => ({
       ))}
     </div>
 
-    <!-- Notes Section -->
     {bike.notes && (
       <div style="margin-top: 3rem; padding: 2rem; background: #FAFAFA; border-left: 3px solid var(--accent, #C84B8E);">
         <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 0.9rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); margin-bottom: 1rem;">
@@ -217,7 +199,6 @@ const activeSections = specSections.map(s => ({
       </div>
     )}
 
-    <!-- Gallery Section -->
     {bike.gallery && bike.gallery.length > 0 && (
       <div style="margin-top: 4rem;">
         <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 1.5rem; color: var(--text, #111);">
@@ -237,4 +218,30 @@ const activeSections = specSections.map(s => ({
       </div>
     )}
   </section>
+
+  <script is:inline>
+    document.addEventListener('DOMContentLoaded', function() {
+      const compareBtn = document.getElementById('compare-btn');
+      
+      if (compareBtn) {
+        compareBtn.addEventListener('click', function() {
+          const slug = this.getAttribute('data-slug');
+          const title = this.getAttribute('data-title');
+          
+          let compareList = JSON.parse(localStorage.getItem('ajgr_compare') || '[]');
+          const alreadyExists = compareList.some(item => item.slug === slug);
+          
+          if (!alreadyExists) {
+            if (compareList.length >= 3) {
+              compareList.shift();
+            }
+            compareList.push({ slug: slug, title: title });
+            localStorage.setItem('ajgr_compare', JSON.stringify(compareList));
+          }
+          
+          window.location.href = '/compare';
+        });
+      }
+    });
+  </script>
 </Layout>
