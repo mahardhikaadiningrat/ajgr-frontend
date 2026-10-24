@@ -45,8 +45,8 @@ const recentSellers = await client.fetch(`*[_type == "seller" && isFeatured == t
   name, category, address, whatsapp, logo
 }`)
 
-// 4. Ambil event terdekat
-const featuredEvents = await client.fetch(`*[_type == "event"] | order(startDate asc)[0...${eventsCount}]{
+// 4. Ambil event terdekat (HANYA yang isFeatured == true)
+const featuredEvents = await client.fetch(`*[_type == "event" && isFeatured == true] | order(startDate asc)[0...${eventsCount}]{
   title, slug, startDate, category, location, status, poster
 }`)
 
