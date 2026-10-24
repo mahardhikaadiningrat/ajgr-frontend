@@ -5,27 +5,21 @@ import { urlFor, getSiteSettings } from '../lib/sanity'
 
 const settings = await getSiteSettings()
 
-// === PERBAIKAN: Deklarasi hpSections WAJIB ADA DI SINI ===
+// === Pengaturan Homepage Sections ===
 const hpSections = settings?.homepageSections || {}
-// === BARU: Jumlah item per section ===
 const journalCount = hpSections.journalCount || 4
 const archiveCount = hpSections.archiveCount || 4
 const rolodexCount = hpSections.rolodexCount || 4
 const marketplaceCount = hpSections.marketplaceCount || 4
 const eventsCount = hpSections.eventsCount || 4
 
-// === Pengaturan Homepage Sections ===
-console.log('Settings dari Sanity:', settings)
-console.log('Homepage Sections:', hpSections)
-
-// Default values (tampilkan semua jika belum disetting)
 const showJournal = hpSections.showJournal !== false
 const showArchive = hpSections.showArchive !== false
 const showRolodex = hpSections.showRolodex !== false
 const showMarketplace = hpSections.showMarketplace !== false
 const showEvents = hpSections.showEvents !== false
+const showFitting = hpSections.showFitting !== false
 
-// Judul section
 const journalTitle = hpSections.journalTitle || 'Latest from Journal'
 const archiveTitle = hpSections.archiveTitle || 'Latest from Archive'
 const rolodexTitle = hpSections.rolodexTitle || 'Recommended Rolodex'
@@ -33,47 +27,35 @@ const marketplaceTitle = hpSections.marketplaceTitle || 'Featured Parts'
 const marketplaceLabel = hpSections.marketplaceLabel || '06 — MARKETPLACE'
 const eventsTitle = hpSections.eventsTitle || 'Upcoming Events'
 const eventsLabel = hpSections.eventsLabel || '05 — CALENDAR'
-
-// === Pengaturan Section Bike Fitting ===
-const showFitting = hpSections.showFitting !== false
 const fittingTitle = hpSections.fittingTitle || 'Bike Fitting Calculator'
 const fittingLabel = hpSections.fittingLabel || 'FITTING'
 
-// Nomor WhatsApp untuk form kerja sama (ambil dari Sanity)
-const collabWhatsApp = settings?.collaborationWhatsApp || '6282147883637'
-
-// 1. Ambil artikel terbaru (tambahkan 'body' untuk cuplikan teks)
+// 1. Ambil artikel terbaru
 const recentPosts = await client.fetch(`*[_type == "post"] | order(publishedAt desc)[0...${journalCount}]{
   title, slug, category, publishedAt, mainImage, body
 }`)
 
-// 2. PERBAIKAN: Tambahkan 'slug' di sini agar bisa diklik
+// 2. Ambil bike terbaru
 const recentBikes = await client.fetch(`*[_type == "bike" && isFeatured == true] | order(_createdAt desc)[0...${archiveCount}]{
   title, year, country, type, mainImage, slug
 }`)
 
-// 3. Ambil seller yang isFeatured == true
+// 3. Ambil seller terbaru
 const recentSellers = await client.fetch(`*[_type == "seller" && isFeatured == true] | order(_createdAt desc)[0...${rolodexCount}]{
   name, category, address, whatsapp, logo
 }`)
 
-// 4. Ambil event terdekat sesuai jumlah dari dashboard
+// 4. Ambil event terdekat
 const featuredEvents = await client.fetch(`*[_type == "event"] | order(startDate asc)[0...${eventsCount}]{
-  title,
-  slug,
-  startDate,
-  category,
-  location,
-  status,
-  poster
+  title, slug, startDate, category, location, status, poster
 }`)
 
-// 5. Ambil part marketplace unggulan sesuai jumlah dari dashboard
+// 5. Ambil part marketplace unggulan
 const featuredMarketplace = await client.fetch(`*[_type == "marketplace" && isFeatured == true] | order(_createdAt desc)[0...${marketplaceCount}]{
   title, slug, category, brand, price, status, sellerLocation, images
 }`)
 
-// Helper: Format kategori (full-bike → Full Bike, brake-lever → Brake Lever)
+// Helper: Format kategori
 function formatCategory(cat: string) {
   if (!cat) return ''
   if (cat === 'full-bike') return 'Full Bike'
@@ -82,6 +64,50 @@ function formatCategory(cat: string) {
 ---
 
 <Layout settings={settings}>
+  <!-- CSS RESPONSIVE KHUSUS HOMEPAGE -->
+  <style>
+    /* ===== BIKE FITTING MOBILE FIX ===== */
+    @media (max-width: 768px) {
+      .fitting-container {
+        padding: 1.5rem !important;
+      }
+      
+      .fitting-grid-2 {
+        grid-template-columns: 1fr !important;
+        gap: 1rem !important;
+      }
+      
+      .fitting-input {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+      }
+      
+      .fitting-button {
+        padding: 0.9rem 1rem !important;
+        font-size: 0.8rem !important;
+      }
+      
+      .fitting-results-grid {
+        grid-template-columns: 1fr !important;
+      }
+    }
+
+    /* ===== COLLAB FORM MOBILE FIX ===== */
+    @media (max-width: 768px) {
+      .collab-grid-2 {
+        grid-template-columns: 1fr !important;
+      }
+      .collab-grid-2 > div {
+        padding: 0 !important;
+        margin-bottom: 0 !important;
+      }
+      .event-grid-home {
+        grid-template-columns: 1fr !important;
+      }
+    }
+  </style>
+
   <!-- HERO SECTION -->
   <section style="padding: 6rem 0 4rem; border-bottom: 1px solid var(--border, #E5E5E5);">
     <span style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); margin-bottom: 1rem; display: block;">
@@ -109,7 +135,7 @@ function formatCategory(cat: string) {
 
       {recentPosts.length > 0 ? (
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem;">
-            {recentPosts.map((post: any) => (
+          {recentPosts.map((post: any) => (
             <a href={`/journal/${post.slug.current}`} style="text-decoration: none; color: inherit; display: block; border: 1px solid var(--border, #E5E5E5); padding: 1.5rem; transition: background-color 0.3s ease;"
               onmouseover="this.style.backgroundColor='#F8F8F8'" 
               onmouseout="this.style.backgroundColor='transparent'">
@@ -171,10 +197,8 @@ function formatCategory(cat: string) {
             </span>
             
             <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; line-height: 1.3;">{bike.title}</h3>
-            
             <p style="font-size: 0.85rem; color: #666;">{bike.type}</p>
             
-            <!-- Tombol Detail -->
             <div style="margin-top: 1rem; display: flex; align-items: center; gap: 0.5rem;">
               <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; color: var(--text, #111);">Detail</span>
               <span style="font-size: 1rem;">→</span>
@@ -232,9 +256,7 @@ function formatCategory(cat: string) {
     </section>
   )}
 
-  <!-- ============================================ -->
   <!-- FEATURED MARKETPLACE SECTION -->
-  <!-- ============================================ -->
   {showMarketplace && (
     <section style="padding: 6rem 0; border-top: 1px solid var(--border, #E5E5E5);">
       <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 3rem; border-bottom: 1px solid var(--border, #E5E5E5); padding-bottom: 1rem;">
@@ -254,24 +276,13 @@ function formatCategory(cat: string) {
       {featuredMarketplace.length > 0 ? (
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem;">
           {featuredMarketplace.map((item: any) => {
-            const statusColors: any = {
-              available: '#22C55E',
-              reserved: '#EAB308',
-              sold: '#EF4444',
-            }
-            const statusLabels: any = {
-              available: 'Tersedia',
-              reserved: 'Reserved',
-              sold: 'Terjual',
-            }
+            const statusColors: any = { available: '#22C55E', reserved: '#EAB308', sold: '#EF4444' }
+            const statusLabels: any = { available: 'Tersedia', reserved: 'Reserved', sold: 'Terjual' }
             return (
               <a href={`/marketplace/${item.slug.current}`} style="text-decoration: none; color: inherit; display: block; border: 1px solid var(--border, #E5E5E5); transition: background-color 0.3s ease; position: relative;" onmouseover="this.style.backgroundColor='#F8F8F8'" onmouseout="this.style.backgroundColor='transparent'">
-                
-                <!-- Status Badge -->
                 <div style="position: absolute; top: 1rem; right: 1rem; background: {statusColors[item.status] || '#22C55E'}; color: white; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; padding: 0.2rem 0.6rem; border-radius: 2px; z-index: 10;">
                   {statusLabels[item.status] || 'Tersedia'}
                 </div>
-
                 <div style="aspect-ratio: 16/10; background: #F5F5F5; overflow: hidden;">
                   {item.images?.[0] ? (
                     <img src={urlFor(item.images[0]).width(600).url()} alt={item.title} style="width: 100%; height: 100%; object-fit: cover;" />
@@ -301,9 +312,7 @@ function formatCategory(cat: string) {
     </section>
   )}
 
-  <!-- ============================================ -->
   <!-- BIKE FITTING CALCULATOR SECTION -->
-  <!-- ============================================ -->
   {showFitting && (
     <section style="padding: 6rem 0; border-top: 1px solid var(--border, #E5E5E5);">
       <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 3rem; border-bottom: 1px solid var(--border, #E5E5E5); padding-bottom: 1rem;">
@@ -317,37 +326,35 @@ function formatCategory(cat: string) {
         </div>
       </div>
 
-      <!-- FORM INPUT -->
-      <div style="max-width: 800px; margin: 0 auto;">
-        <div id="fitting-form" style="border: 1px solid var(--border, #E5E5E5); padding: 2.5rem; border-radius: 4px; background: #FAFAFA;">
+      <div style="max-width: 800px; margin: 0 auto; padding: 0 1rem;">
+        <div id="fitting-form" class="fitting-container" style="border: 1px solid var(--border, #E5E5E5); padding: 2.5rem; border-radius: 4px; background: #FAFAFA;">
           <div style="display: grid; gap: 1.5rem;">
             <div>
               <label style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); margin-bottom: 0.5rem;">Jenis Sepeda</label>
-              <select id="bikeType" style="width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--border, #E5E5E5); background: white; font-family: 'Space Grotesk', sans-serif; font-size: 0.9rem;">
+              <select id="bikeType" class="fitting-input" style="width: 100%; max-width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--border, #E5E5E5); background: white; font-family: 'Space Grotesk', sans-serif; font-size: 0.9rem; box-sizing: border-box;">
                 <option value="road">Road Bike (Sepeda Jalan)</option>
                 <option value="mtb">MTB / Gravel / City Bike</option>
               </select>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+            <div class="fitting-grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
               <div>
                 <label style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); margin-bottom: 0.5rem;">Tinggi Badan (cm)</label>
-                <input type="number" id="height" placeholder="Contoh: 170" style="width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--border, #E5E5E5); background: white; font-family: 'Space Grotesk', sans-serif; font-size: 0.9rem;" />
+                <input type="number" id="height" class="fitting-input" placeholder="Contoh: 170" style="width: 100%; max-width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--border, #E5E5E5); background: white; font-family: 'Space Grotesk', sans-serif; font-size: 0.9rem; box-sizing: border-box;" />
               </div>
               <div>
                 <label style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); margin-bottom: 0.5rem;">Panjang Inseam (cm) *</label>
-                <input type="number" id="inseam" placeholder="Contoh: 80" style="width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--border, #E5E5E5); background: white; font-family: 'Space Grotesk', sans-serif; font-size: 0.9rem;" />
+                <input type="number" id="inseam" class="fitting-input" placeholder="Contoh: 80" style="width: 100%; max-width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--border, #E5E5E5); background: white; font-family: 'Space Grotesk', sans-serif; font-size: 0.9rem; box-sizing: border-box;" />
                 <p style="font-size: 0.7rem; color: #999; margin-top: 0.25rem;">* Jarak dari selangkangan ke lantai</p>
               </div>
             </div>
 
-            <button onclick="calculateFitting()" style="width: 100%; padding: 1rem; background: var(--text, #111); color: white; font-family: 'Space Grotesk', sans-serif; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; border: none; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.backgroundColor='var(--accent, #C84B8E)'" onmouseout="this.style.backgroundColor='var(--text, #111)'">
+            <button onclick="calculateFitting()" class="fitting-button" style="width: 100%; padding: 1rem; background: var(--text, #111); color: white; font-family: 'Space Grotesk', sans-serif; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; border: none; cursor: pointer; transition: background 0.2s; box-sizing: border-box;" onmouseover="this.style.backgroundColor='var(--accent, #C84B8E)'" onmouseout="this.style.backgroundColor='var(--text, #111)'">
               Hitung Rekomendasi Fitting →
             </button>
           </div>
         </div>
 
-        <!-- HASIL (Tersembunyi Awalnya) -->
         <div id="fitting-result" style="display: none; margin-top: 2rem;">
           <div style="border: 1px solid var(--accent, #C84B8E); padding: 2.5rem; border-radius: 4px; background: white; position: relative;">
             <button onclick="resetForm()" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 0.75rem; color: var(--text-muted, #666); cursor: pointer; text-decoration: underline;">Hitung Ulang</button>
@@ -355,15 +362,13 @@ function formatCategory(cat: string) {
             <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--accent, #C84B8E);">Hasil Rekomendasi Anda</h3>
             <p id="res-summary" style="font-size: 0.9rem; color: var(--text-muted, #666); margin-bottom: 2rem;"></p>
             
-            <!-- UKURAN FRAME -->
             <div style="background: linear-gradient(135deg, #C84B8E 0%, #E8C547 100%); padding: 2rem; border-radius: 4px; margin-bottom: 2rem; color: white;">
               <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 0.5rem; opacity: 0.9;">Rekomendasi Ukuran Frame</p>
               <p id="res-frame-size" style="font-family: 'Space Grotesk', sans-serif; font-size: 2.5rem; font-weight: 700; margin-bottom: 0.25rem;">-</p>
               <p id="res-frame-note" style="font-size: 0.85rem; opacity: 0.95;"></p>
             </div>
             
-            <!-- METRIK FITTING -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+            <div class="fitting-results-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
               <div style="padding: 1.5rem; background: #FAFAFA; border: 1px solid var(--border, #E5E5E5); border-radius: 4px;">
                 <p style="font-size: 0.7rem; text-transform: uppercase; color: #999; margin-bottom: 0.5rem; letter-spacing: 0.05em;">Tinggi Saddle (dari BB)</p>
                 <p id="res-saddle" style="font-family: 'Space Grotesk', sans-serif; font-size: 1.75rem; font-weight: 700; color: var(--text, #111);">- cm</p>
@@ -391,7 +396,7 @@ function formatCategory(cat: string) {
     </section>
   )}
 
-  <!-- UPCOMING EVENTS SECTION -->
+  <!-- UPCOMING EVENTS SECTION (DINAMIS POSTER) -->
   {showEvents && (
     <section style="padding: 6rem 0; border-top: 1px solid var(--border, #E5E5E5);">
       <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 3rem; border-bottom: 1px solid var(--border, #E5E5E5); padding-bottom: 1rem;">
@@ -409,50 +414,51 @@ function formatCategory(cat: string) {
       </div>
 
       {featuredEvents.length > 0 ? (
-        <div style="display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--border, #E5E5E5); border-left: 1px solid var(--border, #E5E5E5);">
+        <div class="event-grid-home" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem;">
           {featuredEvents.map((event: any) => {
             const statusColors: any = {
               'coming-soon': '#E8C547',
               'open': '#22C55E',
               'full': '#EF4444',
+              'finished': '#6B7280',
+              'cancelled': '#6B7280'
             }
-            const statusLabels = {
+            const statusLabels: any = {
               'coming-soon': 'COMING SOON',
               'open': 'OPEN REGISTRATION',
               'full': 'FULL',
+              'finished': 'SELESAI',
+              'cancelled': 'DIBATALKAN'
             }
-            const eventDate = new Date(event.startDate)
-            const day = eventDate.getDate()
-            const month = eventDate.toLocaleDateString('id-ID', { month: 'short' }).toUpperCase()
             
             return (
-              <a href={`/events/${event.slug.current}`} style="text-decoration: none; color: inherit; display: block; border-right: 1px solid var(--border, #E5E5E5); border-bottom: 1px solid var(--border, #E5E5E5); padding: 2rem; display: grid; grid-template-columns: 80px 1fr auto; gap: 2rem; align-items: center; transition: background-color 0.3s ease;"
-                 onmouseover="this.style.backgroundColor='#F8F8F8'" 
-                 onmouseout="this.style.backgroundColor='transparent'">
+              <a href={`/events/${event.slug.current}`} style="text-decoration: none; color: inherit; display: block; border: 1px solid var(--border, #E5E5E5); transition: all 0.3s ease; overflow: hidden; background: white;"
+                 onmouseover="this.style.borderColor='var(--accent, #C84B8E)'; this.style.transform='translateY(-4px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" 
+                 onmouseout="this.style.borderColor='var(--border, #E5E5E5)'; this.style.transform='translateY(0)'; this.style.boxShadow='none'">
                 
-                <div style="text-align: center; padding: 1rem; background: #FAFAFA; border: 1px solid var(--border, #E5E5E5);">
-                  <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent, #C84B8E); font-weight: 600; margin-bottom: 0.25rem;">
-                    {month}
-                  </p>
-                  <p style="font-family: 'Space Grotesk', sans-serif; font-size: 2rem; font-weight: 700; color: var(--text, #111); line-height: 1;">
-                    {day}
-                  </p>
+                <div style="width: 100%; background: #F5F5F5; overflow: hidden;">
+                  {event.poster ? (
+                    <img src={urlFor(event.poster).width(800).url()} alt={event.title} style="width: 100%; height: auto; display: block; object-fit: contain;" />
+                  ) : (
+                    <div style="aspect-ratio: 4/3; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #C84B8E 0%, #E8C547 100%);">
+                      <span style="font-size: 3rem; color: white;">📅</span>
+                    </div>
+                  )}
                 </div>
 
-                <div>
-                  <span style="display: inline-block; font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.15em; color: {statusColors[event.status] || '#E8C547'}; margin-bottom: 0.5rem;">
+                <div style="padding: 1.5rem;">
+                  <span style="display: inline-block; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.15em; color: {statusColors[event.status] || '#E8C547'}; margin-bottom: 0.5rem;">
                     {statusLabels[event.status] || 'COMING SOON'}
                   </span>
-                  <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; color: var(--text, #111); margin-bottom: 0.5rem;">
+                  <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.25rem; font-weight: 600; letter-spacing: -0.02em; color: var(--text, #111); margin-bottom: 0.5rem; line-height: 1.3;">
                     {event.title}
                   </h3>
-                  <p style="font-size: 0.85rem; color: var(--text-muted, #666);">
-                    {event.location}
+                  <p style="font-size: 0.85rem; color: var(--text-muted, #666); margin-bottom: 1rem;">
+                    {new Date(event.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })} · {event.location}
                   </p>
-                </div>
-
-                <div style="font-size: 1.5rem; color: var(--text-muted, #999);">
-                  →
+                  <span style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent, #C84B8E); display: inline-flex; align-items: center; gap: 0.5rem;">
+                    Lihat Detail →
+                  </span>
                 </div>
               </a>
             )
@@ -471,98 +477,90 @@ function formatCategory(cat: string) {
     </section>
   )}
 
-<!-- ============================================ -->
-<!-- FORM KERJA SAMA SECTION (WhatsApp) -->
-<!-- ============================================ -->
-<section style="padding: 6rem 0; border-top: 1px solid var(--border, #E5E5E5); background: #FAFAFA;">
-  <div style="max-width: 800px; margin: 0 auto; padding: 0 1.5rem;">
-    <div style="text-align: center; margin-bottom: 3rem;">
-      <span style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); display: block; margin-bottom: 0.5rem;">
-        PARTNERSHIP & COLLABORATION
-      </span>
-      <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: clamp(2rem, 4vw, 2.5rem); font-weight: 600; letter-spacing: -0.02em; color: var(--text, #111);">
-        Form Kerja Sama dengan AJGR.cc
-      </h2>
-      <p style="margin-top: 1rem; font-size: 1rem; color: var(--text-muted, #666); line-height: 1.6;">
-        Punya ide kolaborasi, ingin menjual sepeda vintage, atau request artikel? Isi form di bawah ini dan pesan Anda akan langsung terkirim ke WhatsApp tim kami.
-      </p>
-    </div>
-
-    <form id="collabForm" data-whatsapp="6282147883637" style="background: white; padding: 2.5rem; border: 1px solid var(--border, #E5E5E5); border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.03);">
-      
-      <!-- BARIS 1: Nama & Email -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 1.5rem;">
-        <div style="padding-right: 1.5rem;">
-          <label style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); margin-bottom: 0.5rem;">Nama Lengkap *</label>
-          <input type="text" id="collabName" required style="width: 100%; padding: 0.85rem 1rem; border: 1px solid var(--border, #E5E5E5); border-radius: 4px; font-family: 'Inter', sans-serif; font-size: 0.9rem; box-sizing: border-box;" />
-        </div>
-        <div style="padding-left: 1.5rem;">
-          <label style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); margin-bottom: 0.5rem;">Alamat Email *</label>
-          <input type="email" id="collabEmail" required style="width: 100%; padding: 0.85rem 1rem; border: 1px solid var(--border, #E5E5E5); border-radius: 4px; font-family: 'Inter', sans-serif; font-size: 0.9rem; box-sizing: border-box;" />
-        </div>
-      </div>
-
-      <!-- BARIS 2: No. WhatsApp & Jenis Kerja Sama -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 1.5rem;">
-        <div style="padding-right: 1.5rem;">
-          <label style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); margin-bottom: 0.5rem;">No. WhatsApp Anda</label>
-          <input type="text" id="collabPhone" placeholder="Contoh: 08123456789" style="width: 100%; padding: 0.85rem 1rem; border: 1px solid var(--border, #E5E5E5); border-radius: 4px; font-family: 'Inter', sans-serif; font-size: 0.9rem; box-sizing: border-box;" />
-        </div>
-        <div style="padding-left: 1.5rem;">
-          <label style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); margin-bottom: 0.5rem;">Jenis Kerja Sama *</label>
-          <select id="collabType" required style="width: 100%; padding: 0.85rem 1rem; border: 1px solid var(--border, #E5E5E5); border-radius: 4px; font-family: 'Inter', sans-serif; font-size: 0.9rem; background: white; box-sizing: border-box;">
-            <option value="" disabled selected>Pilih jenis kerja sama...</option>
-            <option value="Kolaborasi Event">Kolaborasi Event</option>
-            <option value="Jual Sepeda atau Part Sepeda">Jual Sepeda atau Part Sepeda</option>
-            <option value="Request Penambahan Katalog Sepeda Vintage">Request Penambahan Katalog Sepeda Vintage</option>
-            <option value="Request Penulisan Artikel Backlink">Request Penulisan Artikel Backlink</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- BARIS 3: Pesan -->
-      <div style="margin-bottom: 1.5rem;">
-        <label style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); margin-bottom: 0.5rem;">Pesan / Detail Permintaan *</label>
-        <textarea id="collabMessage" rows="5" required placeholder="Jelaskan detail permintaan Anda di sini..." style="width: 100%; padding: 0.85rem 1rem; border: 1px solid var(--border, #E5E5E5); border-radius: 4px; font-family: 'Inter', sans-serif; font-size: 0.9rem; resize: vertical; box-sizing: border-box;"></textarea>
-      </div>
-
-      <!-- Tombol Submit -->
-      <div>
-        <button type="submit" id="submitBtn" style="width: 100%; padding: 1rem; background: #25D366; color: white; font-family: 'Space Grotesk', sans-serif; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-          <span style="font-size: 1.2rem;">💬</span>
-          <span>Kirim via WhatsApp</span>
-        </button>
-        <p style="text-align: center; margin-top: 0.75rem; font-size: 0.75rem; color: #999;">
-          Dengan mengklik tombol ini, Anda akan diarahkan ke WhatsApp dengan pesan yang sudah terformat otomatis.
+  <!-- FORM KERJA SAMA SECTION (RESPONSIVE) -->
+  <section style="padding: 6rem 0; border-top: 1px solid var(--border, #E5E5E5); background: #FAFAFA;">
+    <div style="max-width: 800px; margin: 0 auto; padding: 0 1.5rem;">
+      <div style="text-align: center; margin-bottom: 3rem;">
+        <span style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); display: block; margin-bottom: 0.5rem;">
+          PARTNERSHIP & COLLABORATION
+        </span>
+        <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: clamp(2rem, 4vw, 2.5rem); font-weight: 600; letter-spacing: -0.02em; color: var(--text, #111);">
+          Form Kerja Sama dengan AJGR.cc
+        </h2>
+        <p style="margin-top: 1rem; font-size: 1rem; color: var(--text-muted, #666); line-height: 1.6;">
+          Punya ide kolaborasi, ingin menjual sepeda vintage, atau request artikel? Isi form di bawah ini dan pesan Anda akan langsung terkirim ke WhatsApp tim kami.
         </p>
       </div>
 
-    </form>
-  </div>
-</section>
+      <form id="collabForm" data-whatsapp="6282147883637" style="background: white; padding: 2.5rem; border: 1px solid var(--border, #E5E5E5); border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.03);">
+        
+        <div class="collab-grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+          <div>
+            <label style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); margin-bottom: 0.5rem;">Nama Lengkap *</label>
+            <input type="text" id="collabName" required style="width: 100%; padding: 0.85rem 1rem; border: 1px solid var(--border, #E5E5E5); border-radius: 4px; font-family: 'Inter', sans-serif; font-size: 0.9rem; box-sizing: border-box;" />
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); margin-bottom: 0.5rem;">Alamat Email *</label>
+            <input type="email" id="collabEmail" required style="width: 100%; padding: 0.85rem 1rem; border: 1px solid var(--border, #E5E5E5); border-radius: 4px; font-family: 'Inter', sans-serif; font-size: 0.9rem; box-sizing: border-box;" />
+          </div>
+        </div>
 
-<!-- SCRIPT HANDLE FORM → WHATSAPP -->
-<script is:inline>
-  const form = document.getElementById('collabForm');
-  const submitBtn = document.getElementById('submitBtn');
-  const recipientWhatsApp = form.getAttribute('data-whatsapp');
-  console.log('Nomor WhatsApp tujuan:', recipientWhatsApp);
+        <div class="collab-grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+          <div>
+            <label style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); margin-bottom: 0.5rem;">No. WhatsApp Anda</label>
+            <input type="text" id="collabPhone" placeholder="Contoh: 08123456789" style="width: 100%; padding: 0.85rem 1rem; border: 1px solid var(--border, #E5E5E5); border-radius: 4px; font-family: 'Inter', sans-serif; font-size: 0.9rem; box-sizing: border-box;" />
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); margin-bottom: 0.5rem;">Jenis Kerja Sama *</label>
+            <select id="collabType" required style="width: 100%; padding: 0.85rem 1rem; border: 1px solid var(--border, #E5E5E5); border-radius: 4px; font-family: 'Inter', sans-serif; font-size: 0.9rem; background: white; box-sizing: border-box;">
+              <option value="" disabled selected>Pilih jenis kerja sama...</option>
+              <option value="Kolaborasi Event">Kolaborasi Event</option>
+              <option value="Jual Sepeda atau Part Sepeda">Jual Sepeda atau Part Sepeda</option>
+              <option value="Request Penambahan Katalog Sepeda Vintage">Request Penambahan Katalog Sepeda Vintage</option>
+              <option value="Request Penulisan Artikel Backlink">Request Penulisan Artikel Backlink</option>
+            </select>
+          </div>
+        </div>
 
-  form.addEventListener('submit', function(e) {
-    e.preventDefault();
+        <div style="margin-bottom: 1.5rem;">
+          <label style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); margin-bottom: 0.5rem;">Pesan / Detail Permintaan *</label>
+          <textarea id="collabMessage" rows="5" required placeholder="Jelaskan detail permintaan Anda di sini..." style="width: 100%; padding: 0.85rem 1rem; border: 1px solid var(--border, #E5E5E5); border-radius: 4px; font-family: 'Inter', sans-serif; font-size: 0.9rem; resize: vertical; box-sizing: border-box;"></textarea>
+        </div>
 
-    const name = document.getElementById('collabName').value.trim();
-    const email = document.getElementById('collabEmail').value.trim();
-    const phone = document.getElementById('collabPhone').value.trim();
-    const collabType = document.getElementById('collabType').value;
-    const message = document.getElementById('collabMessage').value.trim();
+        <div>
+          <button type="submit" id="submitBtn" style="width: 100%; padding: 1rem; background: #25D366; color: white; font-family: 'Space Grotesk', sans-serif; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+            <span style="font-size: 1.2rem;">💬</span>
+            <span>Kirim via WhatsApp</span>
+          </button>
+          <p style="text-align: center; margin-top: 0.75rem; font-size: 0.75rem; color: #999;">
+            Dengan mengklik tombol ini, Anda akan diarahkan ke WhatsApp dengan pesan yang sudah terformat otomatis.
+          </p>
+        </div>
+      </form>
+    </div>
+  </section>
 
-    if (!name || !email || !collabType || !message) {
-      alert('Mohon lengkapi semua field yang wajib diisi (*).');
-      return;
-    }
+  <!-- SCRIPT HANDLE FORM → WHATSAPP -->
+  <script is:inline>
+    const form = document.getElementById('collabForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const recipientWhatsApp = form.getAttribute('data-whatsapp');
 
-    const waMessage = 
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      const name = document.getElementById('collabName').value.trim();
+      const email = document.getElementById('collabEmail').value.trim();
+      const phone = document.getElementById('collabPhone').value.trim();
+      const collabType = document.getElementById('collabType').value;
+      const message = document.getElementById('collabMessage').value.trim();
+
+      if (!name || !email || !collabType || !message) {
+        alert('Mohon lengkapi semua field yang wajib diisi (*).');
+        return;
+      }
+
+      const waMessage = 
 `Halo AJGR.cc! 👋
 
 Saya ingin mengajukan kerja sama melalui website.
@@ -571,7 +569,7 @@ Saya ingin mengajukan kerja sama melalui website.
 
  *Nama:* ${name}
 📧 *Email:* ${email}
- *No. WhatsApp:* ${phone || '-'}
+📱 *No. WhatsApp:* ${phone || '-'}
 
 🎯 *Jenis Kerja Sama:*
 ${collabType}
@@ -582,147 +580,98 @@ ${message}
 ---
 _Pesan ini dikirim otomatis melalui form kerja sama di AJGR.cc_`;
 
-    const encodedMessage = encodeURIComponent(waMessage);
-
-    submitBtn.innerHTML = '<span></span><span>Membuka WhatsApp...</span>';
-    submitBtn.disabled = true;
-
-    setTimeout(() => {
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      
-      const waUrl = isMobile 
-        ? `https://wa.me/${recipientWhatsApp}?text=${encodedMessage}`
-        : `https://web.whatsapp.com/send?phone=${recipientWhatsApp}&text=${encodedMessage}`;
-
-      console.log('Membuka URL:', waUrl);
-      window.open(waUrl, '_blank');
-
-      form.reset();
-      submitBtn.innerHTML = '<span style="font-size: 1.2rem;">✅</span><span>Pesan Terkirim!</span>';
-      submitBtn.style.backgroundColor = '#22C55E';
+      const encodedMessage = encodeURIComponent(waMessage);
+      submitBtn.innerHTML = '<span></span><span>Membuka WhatsApp...</span>';
+      submitBtn.disabled = true;
 
       setTimeout(() => {
-        submitBtn.innerHTML = '<span style="font-size: 1.2rem;">💬</span><span>Kirim via WhatsApp</span>';
-        submitBtn.style.backgroundColor = '#25D366';
-        submitBtn.disabled = false;
-      }, 3000);
-    }, 500);
-  });
-</script>
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        const waUrl = isMobile 
+          ? `https://wa.me/${recipientWhatsApp}?text=${encodedMessage}`
+          : `https://web.whatsapp.com/send?phone=${recipientWhatsApp}&text=${encodedMessage}`;
+
+        window.open(waUrl, '_blank');
+        form.reset();
+        submitBtn.innerHTML = '<span style="font-size: 1.2rem;">✅</span><span>Pesan Terkirim!</span>';
+        submitBtn.style.backgroundColor = '#22C55E';
+
+        setTimeout(() => {
+          submitBtn.innerHTML = '<span style="font-size: 1.2rem;">💬</span><span>Kirim via WhatsApp</span>';
+          submitBtn.style.backgroundColor = '#25D366';
+          submitBtn.disabled = false;
+        }, 3000);
+      }, 500);
+    });
+  </script>
+
+  <!-- SCRIPT FITTING -->
+  <script is:inline>
+    function calculateFitting() {
+      const bikeTypeElement = document.getElementById('bikeType');
+      const heightElement = document.getElementById('height');
+      const inseamElement = document.getElementById('inseam');
+      
+      if (!bikeTypeElement || !heightElement || !inseamElement) {
+        alert('Form tidak ditemukan. Silakan refresh halaman.');
+        return;
+      }
+
+      const bikeType = bikeTypeElement.value;
+      const height = parseFloat(heightElement.value);
+      const inseam = parseFloat(inseamElement.value);
+
+      if (!height || !inseam) {
+        alert('Mohon isi Tinggi Badan dan Panjang Inseam dengan benar.');
+        return;
+      }
+
+      let saddleHeight = '', setback = 'Netral (tengah rel)', drop = '', frameSize = '', frameNote = '', advice = '', summary = '';
+
+      if (bikeType === 'road') {
+        saddleHeight = (inseam * 0.883).toFixed(1);
+        drop = (height * 0.06).toFixed(1);
+        setback = 'Sedikit ke belakang dari BB';
+        advice = 'Untuk road bike, posisi saddle yang tepat sangat krusial untuk efisiensi kayuhan. Pastikan lutut tidak terlalu lurus (lock) di bagian bawah kayuhan.';
+        summary = 'Road Bike · Tinggi ' + height + 'cm · Inseam ' + inseam + 'cm';
+
+        if (height < 160) { frameSize = '48 - 50 cm'; frameNote = 'Ukuran XS - S · Cocok untuk tinggi badan di bawah 160cm'; }
+        else if (height < 170) { frameSize = '51 - 53 cm'; frameNote = 'Ukuran S - M · Cocok untuk tinggi badan 160-170cm'; }
+        else if (height < 180) { frameSize = '54 - 56 cm'; frameNote = 'Ukuran M - L · Cocok untuk tinggi badan 170-180cm'; }
+        else if (height < 190) { frameSize = '57 - 59 cm'; frameNote = 'Ukuran L - XL · Cocok untuk tinggi badan 180-190cm'; }
+        else { frameSize = '60+ cm'; frameNote = 'Ukuran XXL · Cocok untuk tinggi badan di atas 190cm'; }
+      } else {
+        saddleHeight = (inseam * 0.885).toFixed(1);
+        drop = (height * 0.03).toFixed(1);
+        setback = 'Netral atau sedikit ke depan';
+        advice = 'Untuk MTB/Gravel, saddle biasanya diatur sedikit lebih rendah dari road bike untuk memberikan ruang gerak tubuh saat menghadapi medan teknis dan turunan.';
+        summary = 'MTB / Gravel · Tinggi ' + height + 'cm · Inseam ' + inseam + 'cm';
+
+        if (height < 160) { frameSize = '15"'; frameNote = 'Ukuran XS · Cocok untuk tinggi badan di bawah 160cm'; }
+        else if (height < 170) { frameSize = '17 - 18"'; frameNote = 'Ukuran S - M · Cocok untuk tinggi badan 160-170cm'; }
+        else if (height < 180) { frameSize = '19 - 20"'; frameNote = 'Ukuran M - L · Cocok untuk tinggi badan 170-180cm'; }
+        else if (height < 190) { frameSize = '21 - 22"'; frameNote = 'Ukuran L - XL · Cocok untuk tinggi badan 180-190cm'; }
+        else { frameSize = '23"'; frameNote = 'Ukuran XXL · Cocok untuk tinggi badan di atas 190cm'; }
+      }
+
+      document.getElementById('res-saddle').innerText = saddleHeight + ' cm';
+      document.getElementById('res-setback').innerText = setback;
+      document.getElementById('res-drop').innerText = drop + ' cm';
+      document.getElementById('res-advice').innerText = advice;
+      document.getElementById('res-frame-size').innerText = frameSize;
+      document.getElementById('res-frame-note').innerText = frameNote;
+      document.getElementById('res-summary').innerText = summary;
+
+      document.getElementById('fitting-form').style.display = 'none';
+      const resultEl = document.getElementById('fitting-result');
+      resultEl.style.display = 'block';
+      resultEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function resetForm() {
+      document.getElementById('fitting-result').style.display = 'none';
+      document.getElementById('fitting-form').style.display = 'block';
+      document.getElementById('height').value = '';
+      document.getElementById('inseam').value = '';
+    }
+  </script>
 </Layout>
-
-<!-- SCRIPT FITTING -->
-<script is:inline>
-  function calculateFitting() {
-    const bikeTypeElement = document.getElementById('bikeType');
-    const heightElement = document.getElementById('height');
-    const inseamElement = document.getElementById('inseam');
-    
-    if (!bikeTypeElement || !heightElement || !inseamElement) {
-      alert('Form tidak ditemukan. Silakan refresh halaman.');
-      return;
-    }
-
-    const bikeType = bikeTypeElement.value;
-    const height = parseFloat(heightElement.value);
-    const inseam = parseFloat(inseamElement.value);
-
-    if (!height || !inseam) {
-      alert('Mohon isi Tinggi Badan dan Panjang Inseam dengan benar.');
-      return;
-    }
-
-    let saddleHeight = '';
-    let setback = 'Netral (tengah rel)';
-    let drop = '';
-    let frameSize = '';
-    let frameNote = '';
-    let advice = '';
-    let summary = '';
-
-    if (bikeType === 'road') {
-      saddleHeight = (inseam * 0.883).toFixed(1);
-      drop = (height * 0.06).toFixed(1);
-      setback = 'Sedikit ke belakang dari BB';
-      advice = 'Untuk road bike, posisi saddle yang tepat sangat krusial untuk efisiensi kayuhan. Pastikan lutut tidak terlalu lurus (lock) di bagian bawah kayuhan.';
-      summary = 'Road Bike · Tinggi ' + height + 'cm · Inseam ' + inseam + 'cm';
-
-      if (height < 160) {
-        frameSize = '48 - 50 cm';
-        frameNote = 'Ukuran XS - S · Cocok untuk tinggi badan di bawah 160cm';
-      } else if (height < 170) {
-        frameSize = '51 - 53 cm';
-        frameNote = 'Ukuran S - M · Cocok untuk tinggi badan 160-170cm';
-      } else if (height < 180) {
-        frameSize = '54 - 56 cm';
-        frameNote = 'Ukuran M - L · Cocok untuk tinggi badan 170-180cm';
-      } else if (height < 190) {
-        frameSize = '57 - 59 cm';
-        frameNote = 'Ukuran L - XL · Cocok untuk tinggi badan 180-190cm';
-      } else {
-        frameSize = '60+ cm';
-        frameNote = 'Ukuran XXL · Cocok untuk tinggi badan di atas 190cm';
-      }
-    } else {
-      saddleHeight = (inseam * 0.885).toFixed(1);
-      drop = (height * 0.03).toFixed(1);
-      setback = 'Netral atau sedikit ke depan';
-      advice = 'Untuk MTB/Gravel, saddle biasanya diatur sedikit lebih rendah dari road bike untuk memberikan ruang gerak tubuh saat menghadapi medan teknis dan turunan.';
-      summary = 'MTB / Gravel · Tinggi ' + height + 'cm · Inseam ' + inseam + 'cm';
-
-      if (height < 160) {
-        frameSize = '15"';
-        frameNote = 'Ukuran XS · Cocok untuk tinggi badan di bawah 160cm';
-      } else if (height < 170) {
-        frameSize = '17 - 18"';
-        frameNote = 'Ukuran S - M · Cocok untuk tinggi badan 160-170cm';
-      } else if (height < 180) {
-        frameSize = '19 - 20"';
-        frameNote = 'Ukuran M - L · Cocok untuk tinggi badan 170-180cm';
-      } else if (height < 190) {
-        frameSize = '21 - 22"';
-        frameNote = 'Ukuran L - XL · Cocok untuk tinggi badan 180-190cm';
-      } else {
-        frameSize = '23"';
-        frameNote = 'Ukuran XXL · Cocok untuk tinggi badan di atas 190cm';
-      }
-    }
-
-    const saddleEl = document.getElementById('res-saddle');
-    const setbackEl = document.getElementById('res-setback');
-    const dropEl = document.getElementById('res-drop');
-    const adviceEl = document.getElementById('res-advice');
-    const frameSizeEl = document.getElementById('res-frame-size');
-    const frameNoteEl = document.getElementById('res-frame-note');
-    const summaryEl = document.getElementById('res-summary');
-    const fittingForm = document.getElementById('fitting-form');
-    const fittingResult = document.getElementById('fitting-result');
-
-    if (saddleEl) saddleEl.innerText = saddleHeight + ' cm';
-    if (setbackEl) setbackEl.innerText = setback;
-    if (dropEl) dropEl.innerText = drop + ' cm';
-    if (adviceEl) adviceEl.innerText = advice;
-    if (frameSizeEl) frameSizeEl.innerText = frameSize;
-    if (frameNoteEl) frameNoteEl.innerText = frameNote;
-    if (summaryEl) summaryEl.innerText = summary;
-
-    if (fittingForm) fittingForm.style.display = 'none';
-    if (fittingResult) {
-      fittingResult.style.display = 'block';
-      fittingResult.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }
-
-  function resetForm() {
-    const fittingForm = document.getElementById('fitting-form');
-    const fittingResult = document.getElementById('fitting-result');
-    const heightInput = document.getElementById('height');
-    const inseamInput = document.getElementById('inseam');
-
-    if (fittingResult) fittingResult.style.display = 'none';
-    if (fittingForm) fittingForm.style.display = 'block';
-    if (heightInput) heightInput.value = '';
-    if (inseamInput) inseamInput.value = '';
-  }
-</script>
-
