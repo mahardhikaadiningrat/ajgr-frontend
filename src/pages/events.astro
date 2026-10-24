@@ -297,18 +297,18 @@ function getStatusBadge(status) {
 
                   <!-- TOMBOL INTERAKTIF "SAYA AKAN HADIR" -->
                   {event.status === 'open' && event.quota && (
-                    <button 
-                      class="attend-btn"
-                      data-slug={event.slug.current}
-                      data-count={currentCount}
-                      data-quota={quota}
-                      style="display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: white; background: var(--accent, #C84B8E); border: none; padding: 1rem 1.5rem; cursor: pointer; transition: all 0.2s ease;"
-                      onmouseover="this.style.backgroundColor='#A03D72'"
-                      onmouseout="this.style.backgroundColor='var(--accent, #C84B8E)'"
-                    >
-                      🙋 Saya akan hadir
-                    </button>
-                  )}
+                  <button 
+                    class="attend-btn"
+                    data-slug={event.slug.current}
+                    data-count={currentCount}
+                    data-quota={quota}
+                    style="display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: white; background: #C84B8E; border: 2px solid #C84B8E; padding: 1rem 1.5rem; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"
+                    onmouseover="this.style.backgroundColor='#A03D72'; this.style.borderColor='#A03D72'"
+                    onmouseout="this.style.backgroundColor='#C84B8E'; this.style.borderColor='#C84B8E'"
+                  >
+                    🙋 Saya akan hadir
+                  </button>
+                )}
 
                   {event.mapsLink && (
                     <a 
