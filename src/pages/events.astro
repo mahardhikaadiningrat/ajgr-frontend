@@ -1,4 +1,6 @@
 ---
+export const prerender = false;
+
 import Layout from '../layouts/Layout.astro'
 import client from '../lib/sanity'
 import { urlFor, getSiteSettings } from '../lib/sanity'
@@ -25,26 +27,42 @@ const events = await client.fetch(`*[_type == "event"] | order(startDate asc){
   registeredCount,
   registrationLink,
   contactPIC,
+  meetingPoint,
+  finishPoint,
   isFeatured
 }`)
 
 // Fungsi helper untuk format tanggal
 function formatDate(dateStr) {
   const date = new Date(dateStr)
-  return date.toLocaleDateString('id-ID', { 
-    day: 'numeric', 
-    month: 'long', 
-    year: 'numeric' 
-  })
+  return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 // Fungsi helper untuk format waktu
 function formatTime(dateStr) {
   const date = new Date(dateStr)
-  return date.toLocaleTimeString('id-ID', { 
-    hour: '2-digit', 
-    minute: '2-digit' 
+  return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+}
+
+// Fungsi helper untuk Google Calendar URL
+function getGoogleCalendarUrl(event) {
+  const startDate = new Date(event.startDate)
+  const endDate = event.endDate ? new Date(event.endDate) : new Date(startDate.getTime() + 2 * 60 * 60 * 1000) // Default 2 jam
+  
+  // Format: YYYYMMDDTHHMMSSZ (UTC)
+  const formatDateForGCal = (date) => {
+    return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
+  }
+  
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: event.title,
+    dates: formatDateForGCal(startDate) + '/' + formatDateForGCal(endDate),
+    details: event.description || '',
+    location: event.meetingPoint || event.finishPoint || event.location || '',
   })
+  
+  return 'https://calendar.google.com/calendar/render?' + params.toString()
 }
 
 // Fungsi helper untuk status badge
@@ -61,6 +79,75 @@ function getStatusBadge(status) {
 ---
 
 <Layout settings={settings}>
+  <style>
+    html, body { overflow-x: hidden; max-width: 100vw; }
+    * { box-sizing: border-box; }
+
+    /* POSTER DINAMIS - Rasio asli terjaga */
+    .event-poster {
+      width: 100%;
+      height: auto;
+      display: block;
+      background: #F0F0F0;
+      overflow: hidden;
+      margin-bottom: 0;
+    }
+    .event-poster img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    /* Desktop layout */
+    .event-card {
+      border-right: 1px solid var(--border, #E5E5E5);
+      border-bottom: 1px solid var(--border, #E5E5E5);
+      padding: 3rem;
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 3rem;
+      align-items: start;
+      transition: background-color 0.3s ease;
+    }
+
+    .event-info-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 2rem;
+    }
+
+    .event-info-item {
+      padding: 1rem 0;
+    }
+
+    .event-info-item:not(:last-child) {
+      margin-bottom: 0;
+    }
+
+    /* Mobile responsive */
+    @media (max-width: 768px) {
+      .event-card {
+        grid-template-columns: 1fr !important;
+        gap: 2rem !important;
+        padding: 1.5rem !important;
+      }
+      .event-info-grid { 
+        grid-template-columns: 1fr !important; 
+        gap: 1.5rem !important;
+      }
+      .event-info-item {
+        padding: 1.25rem 0;
+        border-bottom: 1px solid var(--border, #E5E5E5);
+      }
+      .event-info-item:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+      }
+      h2 { font-size: 1.5rem !important; word-break: break-word; }
+      p { font-size: 0.95rem !important; }
+    }
+  </style>
+
   <!-- HEADER SECTION -->
   <section style="padding: 6rem 0 4rem; border-bottom: 1px solid var(--border, #E5E5E5);">
     <span style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); margin-bottom: 1rem; display: block;">
@@ -80,53 +167,36 @@ function getStatusBadge(status) {
       <div style="display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--border, #E5E5E5); border-left: 1px solid var(--border, #E5E5E5);">
         {events.map((event) => {
           const badge = getStatusBadge(event.status)
+          const currentCount = event.registeredCount || 0
+          const quota = event.quota || 0
+          const calendarUrl = getGoogleCalendarUrl(event)
+          
           return (
-            <article style="border-right: 1px solid var(--border, #E5E5E5); border-bottom: 1px solid var(--border, #E5E5E5); padding: 3rem; display: grid; grid-template-columns: 280px 1fr; gap: 3rem; align-items: start; transition: background-color 0.3s ease;"
-                     onmouseover="this.style.backgroundColor='#F8F8F8'" 
-                     onmouseout="this.style.backgroundColor='transparent'">
+            <article class="event-card" onmouseover="this.style.backgroundColor='#F8F8F8'" onmouseout="this.style.backgroundColor='transparent'">
               
-              <!-- Left: Poster & Date -->
+              <!-- Left Column: Poster Dinamis -->
               <div>
-                {event.poster ? (
-                  <div style="aspect-ratio: 4/3; background: #F0F0F0; overflow: hidden; margin-bottom: 1.5rem;">
-                    <img 
-                      src={urlFor(event.poster).width(400).url()} 
-                      alt={event.title}
-                      style="width: 100%; height: 100%; object-fit: cover;"
-                    />
-                  </div>
-                ) : (
-                  <div style="aspect-ratio: 4/3; background: linear-gradient(135deg, #C84B8E 0%, #E8C547 100%); display: flex; align-items: center; justify-content: center; margin-bottom: 1.5rem;">
-                    <span style="font-size: 3rem; color: white;">📅</span>
-                  </div>
-                )}
-                
-                <div style="padding: 1rem; background: #FAFAFA; border: 1px solid var(--border, #E5E5E5);">
-                  <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 0.5rem;">Tanggal</p>
-                  <p style="font-family: 'Space Grotesk', sans-serif; font-size: 1.1rem; font-weight: 600; color: #111; margin-bottom: 0.25rem;">
-                    {formatDate(event.startDate)}
-                  </p>
-                  <p style="font-size: 0.9rem; color: #666;">
-                    {formatTime(event.startDate)} WITA
-                  </p>
+                <div class="event-poster">
+                  {event.poster ? (
+                    <img src={urlFor(event.poster).width(800).url()} alt={event.title} />
+                  ) : (
+                    <div style="aspect-ratio: 1/1; background: linear-gradient(135deg, #C84B8E 0%, #E8C547 100%); display: flex; align-items: center; justify-content: center;">
+                      <span style="font-size: 3rem; color: white;">📅</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <!-- Right: Content -->
+              <!-- Right Column: Content -->
               <div>
-                <!-- Status Badge -->
-                <span style="display: inline-block; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.15em; color: {badge.color}; background: {badge.bg}; padding: 0.4rem 0.8rem; margin-bottom: 1rem;">
-                  {badge.label}
-                </span>
-
                 <!-- Category -->
-                <p style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); margin-bottom: 0.75rem;">
+                <p style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); margin-bottom: 0.5rem;">
                   {event.category || 'EVENT'}
                 </p>
 
-                <!-- Title (SUDAH DIUPDATE MENJADI LINK) -->
-                <a href={`/events/${event.slug.current}`} style="text-decoration: none; color: inherit; display: block;">
-                  <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: 2rem; font-weight: 600; letter-spacing: -0.02em; color: var(--text, #111111); margin-bottom: 1rem; line-height: 1.2; transition: color 0.2s;"
+                <!-- Title -->
+                <a href={`/events/${event.slug.current}`} style="text-decoration: none; color: inherit; display: block; margin-bottom: 1rem;">
+                  <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: 2rem; font-weight: 600; letter-spacing: -0.02em; color: var(--text, #111111); line-height: 1.2; transition: color 0.2s;"
                       onmouseover="this.style.color='var(--accent, #C84B8E)'"
                       onmouseout="this.style.color='var(--text, #111111)'">
                     {event.title}
@@ -135,65 +205,121 @@ function getStatusBadge(status) {
 
                 <!-- Description -->
                 {event.description && (
-                  <p style="font-size: 1rem; color: var(--text-muted, #666666); line-height: 1.7; margin-bottom: 1.5rem; max-width: 600px;">
+                  <p style="font-size: 1rem; color: var(--text-muted, #666666); line-height: 1.7; margin-bottom: 1.5rem;">
                     {event.description}
                   </p>
                 )}
 
-                <!-- Info Grid -->
-                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 2rem; padding: 1.5rem; background: #FAFAFA; border: 1px solid var(--border, #E5E5E5);">
-                  {event.location && (
-                    <div>
-                      <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 0.25rem;">Lokasi</p>
-                      <p style="font-size: 0.9rem; color: #111; font-weight: 500;">{event.location}</p>
+                <!-- Status Badge -->
+                <div style="margin-bottom: 2rem;">
+                  <span style="display: inline-block; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.15em; color: {badge.color}; background: {badge.bg}; padding: 0.5rem 1rem;">
+                    {badge.label}
+                  </span>
+                </div>
+
+                <!-- Info Grid (Tanggal, Titik Kumpul, Titik Finish, Kuota) -->
+                <div class="event-info-grid" style="margin-bottom: 2rem; padding: 2rem; background: #FAFAFA; border: 1px solid var(--border, #E5E5E5);">
+                  
+                  <!-- Tanggal & Waktu -->
+                  <div class="event-info-item">
+                    <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 0.75rem; font-weight: 600;"> Tanggal & Waktu</p>
+                    <p style="font-size: 1rem; color: #111; font-weight: 600; margin-bottom: 0.25rem; line-height: 1.4;">
+                      {formatDate(event.startDate)}
+                    </p>
+                    <p style="font-size: 0.95rem; color: #666; font-weight: 400;">
+                      {formatTime(event.startDate)} WITA
+                    </p>
+                  </div>
+
+                  <!-- Titik Kumpul -->
+                  {event.meetingPoint && (
+                    <div class="event-info-item">
+                      <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 0.75rem; font-weight: 600;">📍 Titik Kumpul</p>
+                      <p style="font-size: 1rem; color: #111; font-weight: 500; word-break: break-word; line-height: 1.5;">{event.meetingPoint}</p>
                     </div>
                   )}
-                  {event.price && (
-                    <div>
-                      <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 0.25rem;">Biaya</p>
-                      <p style="font-size: 0.9rem; color: #111; font-weight: 500;">{event.price}</p>
+
+                  <!-- Titik Finish -->
+                  {event.finishPoint && (
+                    <div class="event-info-item">
+                      <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 0.75rem; font-weight: 600;">🏁 Titik Finish</p>
+                      <p style="font-size: 1rem; color: #111; font-weight: 500; word-break: break-word; line-height: 1.5;">{event.finishPoint}</p>
                     </div>
                   )}
+
+                  <!-- Kuota Peserta -->
                   {event.quota && (
-                    <div>
-                      <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 0.25rem;">Kuota</p>
-                      <p style="font-size: 0.9rem; color: #111; font-weight: 500;">
-                        {event.registeredCount || 0} / {event.quota} peserta
+                    <div class="event-info-item">
+                      <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 0.75rem; font-weight: 600;">👥 Kuota Peserta</p>
+                      <p id={'count-' + event.slug.current} style="font-size: 1rem; color: #111; font-weight: 600;">
+                        {currentCount} / {quota} peserta
                       </p>
                     </div>
                   )}
+
+                  <!-- Kontak PIC (jika ada) -->
                   {event.contactPIC && (
-                    <div>
-                      <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 0.25rem;">Kontak PIC</p>
-                      <p style="font-size: 0.9rem; color: #111; font-weight: 500;">{event.contactPIC}</p>
+                    <div class="event-info-item">
+                      <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 0.75rem; font-weight: 600;">📞 Kontak PIC</p>
+                      <p style="font-size: 0.95rem; color: #111; font-weight: 500; word-break: break-word;">{event.contactPIC}</p>
                     </div>
                   )}
                 </div>
 
                 <!-- Action Buttons -->
-                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
                   {event.registrationLink && event.status !== 'finished' && event.status !== 'cancelled' && (
                     <a 
                       href={event.registrationLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style="display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: white; background: var(--text, #111111); text-decoration: none; padding: 0.9rem 1.5rem; transition: all 0.2s ease;"
+                      style="display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: white; background: var(--text, #111111); text-decoration: none; padding: 1rem 1.5rem; transition: all 0.2s ease;"
                       onmouseover="this.style.backgroundColor='var(--accent, #C84B8E)'"
                       onmouseout="this.style.backgroundColor='var(--text, #111111)'"
                     >
-                      Daftar Sekarang →
+                      📝 Daftar Sekarang
                     </a>
                   )}
+                  
+                  <!-- TOMBOL ADD TO CALENDAR -->
+                  {event.status !== 'finished' && event.status !== 'cancelled' && (
+                    <a 
+                      href={calendarUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style="display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: white; background: #4285F4; text-decoration: none; padding: 1rem 1.5rem; transition: all 0.2s ease;"
+                      onmouseover="this.style.backgroundColor='#3367D6'"
+                      onmouseout="this.style.backgroundColor='#4285F4'"
+                    >
+                      📅 Add to Calendar
+                    </a>
+                  )}
+
+                  <!-- TOMBOL INTERAKTIF "SAYA AKAN HADIR" -->
+                  {event.status === 'open' && event.quota && (
+                    <button 
+                      class="attend-btn"
+                      data-slug={event.slug.current}
+                      data-count={currentCount}
+                      data-quota={quota}
+                      style="display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: white; background: var(--accent, #C84B8E); border: none; padding: 1rem 1.5rem; cursor: pointer; transition: all 0.2s ease;"
+                      onmouseover="this.style.backgroundColor='#A03D72'"
+                      onmouseout="this.style.backgroundColor='var(--accent, #C84B8E)'"
+                    >
+                      🙋 Saya akan hadir
+                    </button>
+                  )}
+
                   {event.mapsLink && (
                     <a 
                       href={event.mapsLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style="display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text, #111111); text-decoration: none; border: 1px solid var(--text, #111111); padding: 0.9rem 1.5rem; transition: all 0.2s ease;"
+                      style="display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text, #111111); text-decoration: none; border: 1px solid var(--text, #111111); padding: 1rem 1.5rem; transition: all 0.2s ease;"
                       onmouseover="this.style.backgroundColor='var(--text, #111111)'; this.style.color='#FAFAFA'"
                       onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--text, #111111)'"
                     >
-                      📍 Lihat Lokasi
+                      ️ Lihat Peta Rute
                     </a>
                   )}
                 </div>
@@ -209,4 +335,45 @@ function getStatusBadge(status) {
       </div>
     )}
   </section>
+
+  <!-- SCRIPT INTERAKTIF PER-DEVICE -->
+  <script is:inline>
+    document.addEventListener('DOMContentLoaded', function() {
+      const attendButtons = document.querySelectorAll('.attend-btn');
+      
+      attendButtons.forEach(btn => {
+        const slug = btn.getAttribute('data-slug');
+        const currentCount = parseInt(btn.getAttribute('data-count')) || 0;
+        const quota = parseInt(btn.getAttribute('data-quota')) || 0;
+        const countDisplay = document.getElementById('count-' + slug);
+        
+        const storageKey = 'ajgr_attended_' + slug;
+        const hasAttended = localStorage.getItem(storageKey);
+
+        function markAsAttended() {
+          btn.textContent = '✓ ANDA SUDAH TERDAFTAR';
+          btn.disabled = true;
+          btn.style.backgroundColor = '#22C55E';
+          btn.style.cursor = 'not-allowed';
+          btn.removeAttribute('onmouseover');
+          btn.removeAttribute('onmouseout');
+          
+          if (countDisplay) {
+            countDisplay.textContent = (currentCount + 1) + ' / ' + quota + ' peserta';
+            countDisplay.style.color = '#22C55E';
+          }
+        }
+
+        if (hasAttended) {
+          markAsAttended();
+        } else {
+          btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            localStorage.setItem(storageKey, 'true');
+            markAsAttended();
+          });
+        }
+      });
+    });
+  </script>
 </Layout>
