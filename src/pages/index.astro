@@ -66,7 +66,7 @@ function formatCategory(cat: string) {
 <Layout settings={settings}>
   <!-- CSS RESPONSIVE KHUSUS HOMEPAGE -->
   <style>
-    /* ===== EVENT POSTER: Dinamis sesuai rasio asli flyer ===== */
+    /* ===== EVENT POSTER: Compact & Centered di Desktop ===== */
     .event-poster-home {
       width: 100%;
       max-width: 500px;
@@ -100,7 +100,7 @@ function formatCategory(cat: string) {
       width: 100%;
     }
 
-    /* ===== MARKETPLACE CARD: Lebih Besar ===== */
+    /* ===== MARKETPLACE CARD ===== */
     .marketplace-card-home {
       width: 100%;
       max-width: 550px;
@@ -118,26 +118,61 @@ function formatCategory(cat: string) {
       padding: 1.5rem;
     }
 
-    /* ===== MOBILE: Poster tetap rapi ===== */
+    /* ===== MOBILE: Fix Events Section - FULL WIDTH & CENTERED ===== */
     @media (max-width: 768px) {
+      /* Section Events: hapus padding horizontal */
+      section:has(.event-grid-home) {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+      }
+      
+      /* Event poster full width di mobile */
       .event-poster-home {
-        max-width: 100%;
+        max-width: 100% !important;
+        width: 100% !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
       }
+      .event-poster-home img {
+        width: 100% !important;
+        height: auto !important;
+        max-height: none !important;
+      }
+      
+      /* Event card full width, NO margin */
       .event-card-home {
-        padding: 1.25rem;
-        max-width: 100%;
+        max-width: 100% !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 1rem !important;
+        border-radius: 0 !important;
+        box-sizing: border-box !important;
       }
+      
+      /* Grid events 1 kolom, full width */
+      .event-grid-home {
+        grid-template-columns: 1fr !important;
+        gap: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      
+      /* Marketplace */
       .marketplace-card-home {
-        max-width: 100%;
+        max-width: 100% !important;
       }
       .marketplace-card-home .card-image {
-        max-width: 100%;
+        max-width: 100% !important;
         height: 260px;
       }
-      .event-grid-home,
       .marketplace-grid-home {
         grid-template-columns: 1fr !important;
+        gap: 1rem !important;
       }
+      
+      /* Fitting & Collab form */
       .fitting-grid-2 {
         grid-template-columns: 1fr !important;
       }
@@ -302,7 +337,7 @@ function formatCategory(cat: string) {
     </section>
   )}
 
-  <!-- FEATURED MARKETPLACE SECTION (LEBIH BESAR) -->
+  <!-- FEATURED MARKETPLACE SECTION -->
   {showMarketplace && (
     <section style="padding: 6rem 0; border-top: 1px solid var(--border, #E5E5E5);">
       <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 3rem; border-bottom: 1px solid var(--border, #E5E5E5); padding-bottom: 1rem;">
@@ -334,7 +369,7 @@ function formatCategory(cat: string) {
                     <img src={urlFor(item.images[0]).width(800).url()} alt={item.title} style="width: 100%; height: 100%; object-fit: cover;" />
                   ) : (
                     <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #C84B8E 0%, #E8C547 100%);">
-                      <span style="font-size: 3rem; color: white;">🔧</span>
+                      <span style="font-size: 3rem; color: white;"></span>
                     </div>
                   )}
                 </div>
@@ -344,7 +379,7 @@ function formatCategory(cat: string) {
                   </span>
                   <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.35rem; font-weight: 600; margin: 0.5rem 0; line-height: 1.3;">{item.title}</h3>
                   <p style="font-size: 1.35rem; font-weight: 700; color: var(--text, #111); margin-bottom: 0.5rem;">Rp {item.price?.toLocaleString('id-ID')}</p>
-                  <p style="font-size: 0.9rem; color: var(--text-muted, #666);">📍 {item.sellerLocation || '-'}</p>
+                  <p style="font-size: 0.9rem; color: var(--text-muted, #666);"> {item.sellerLocation || '-'}</p>
                 </div>
               </a>
             )
@@ -442,10 +477,10 @@ function formatCategory(cat: string) {
     </section>
   )}
 
-  <!-- UPCOMING EVENTS SECTION (POSTER DINAMIS) -->
+  <!-- UPCOMING EVENTS SECTION -->
   {showEvents && (
     <section style="padding: 6rem 0; border-top: 1px solid var(--border, #E5E5E5);">
-      <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 3rem; border-bottom: 1px solid var(--border, #E5E5E5); padding-bottom: 1rem;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 3rem; border-bottom: 1px solid var(--border, #E5E5E5); padding-bottom: 1rem; padding: 0 1rem;">
         <div>
           <span style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); display: block; margin-bottom: 0.5rem;">
             {eventsLabel}
@@ -460,7 +495,7 @@ function formatCategory(cat: string) {
       </div>
 
       {featuredEvents.length > 0 ? (
-        <div class="event-grid-home" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 2rem;">
+        <div class="event-grid-home">
           {featuredEvents.map((event: any) => {
             const statusColors: any = {
               'coming-soon': '#E8C547',
@@ -478,22 +513,22 @@ function formatCategory(cat: string) {
             }
             
             return (
-              <a href={`/events/${event.slug.current}`} class="event-card-home" style="text-decoration: none; color: inherit; border: 1px solid var(--border, #E5E5E5); transition: all 0.3s ease; overflow: hidden; background: white;"
+              <a href={`/events/${event.slug.current}`} class="event-card-home" style="text-decoration: none; color: inherit; border: 1px solid var(--border, #E5E5E5); transition: all 0.3s ease; overflow: hidden; background: white; display: block;"
                  onmouseover="this.style.borderColor='var(--accent, #C84B8E)'; this.style.transform='translateY(-4px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" 
                  onmouseout="this.style.borderColor='var(--border, #E5E5E5)'; this.style.transform='translateY(0)'; this.style.boxShadow='none'">
                 
-                <!-- POSTER: Dinamis sesuai rasio asli -->
+                <!-- POSTER -->
                 <div class="event-poster-home">
                   {event.poster ? (
                     <img src={urlFor(event.poster).width(800).url()} alt={event.title} />
                   ) : (
                     <div style="width: 100%; height: 240px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #C84B8E 0%, #E8C547 100%);">
-                      <span style="font-size: 3rem; color: white;">📅</span>
+                      <span style="font-size: 3rem; color: white;"></span>
                     </div>
                   )}
                 </div>
 
-                <!-- INFO EVENT DI BAWAH POSTER -->
+                <!-- INFO EVENT -->
                 <div class="event-info">
                   <span style="display: inline-block; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.15em; color: {statusColors[event.status] || '#E8C547'}; margin-bottom: 0.5rem;">
                     {statusLabels[event.status] || 'COMING SOON'}
@@ -525,7 +560,7 @@ function formatCategory(cat: string) {
     </section>
   )}
 
-  <!-- FORM KERJA SAMA SECTION (RESPONSIVE) -->
+  <!-- FORM KERJA SAMA SECTION -->
   <section style="padding: 6rem 0; border-top: 1px solid var(--border, #E5E5E5); background: #FAFAFA;">
     <div style="max-width: 800px; margin: 0 auto; padding: 0 1.5rem;">
       <div style="text-align: center; margin-bottom: 3rem;">
@@ -622,7 +657,7 @@ Saya ingin mengajukan kerja sama melalui website.
 🎯 *Jenis Kerja Sama:*
 ${collabType}
 
-💬 *Pesan:*
+ *Pesan:*
 ${message}
 
 ---

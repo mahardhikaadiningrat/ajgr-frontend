@@ -34,6 +34,35 @@ function formatDay(dateStr) {
   return date.toLocaleDateString('id-ID', { weekday: 'long' })
 }
 
+// Helper: Format harga dengan logika dinamis
+function formatPrice(price) {
+  if (!price && price !== 0) return null  // Kosong/null → tidak tampil
+  if (price === 0) return null            // 0 → tidak tampil
+  
+  // Jika string "Gratis" atau "gratis"
+  if (typeof price === 'string' && price.toLowerCase() === 'gratis') {
+    return 'Gratis'
+  }
+  
+  // Jika angka
+  if (typeof price === 'number') {
+    if (price === 0) return null
+    return 'Rp ' + price.toLocaleString('id-ID')
+  }
+  
+  // Jika string angka (misal "50000")
+  if (typeof price === 'string') {
+    const num = parseFloat(price.replace(/[^0-9]/g, ''))
+    if (isNaN(num) || num === 0) return null
+    return 'Rp ' + num.toLocaleString('id-ID')
+  }
+  
+  return null
+}
+
+// Cek apakah biaya harus ditampilkan
+const displayPrice = formatPrice(event.price)
+
 // Generate Google Calendar URL
 function getGoogleCalendarUrl(event) {
   const startDate = new Date(event.startDate)
@@ -113,8 +142,8 @@ const quota = event.quota || 0
       color: #111;
     }
 
-    /* ===== PERBAIKAN: Container flyer menyesuaikan ukuran asli ===== */
-    .event-poster-wrapper {
+    /* Poster di bawah judul */
+    .event-poster-inline {
       display: flex;
       justify-content: center;
       align-items: center;
@@ -124,17 +153,12 @@ const quota = event.quota || 0
       border-radius: 8px;
       border: 1px solid var(--border, #E5E5E5);
     }
-
-    .event-poster-inline {
-      display: inline-block;
-      max-width: 100%;
-    }
     
     .event-poster-inline img {
       width: auto;
       height: auto;
       max-width: 100%;
-      max-height: 700px; /* ← Diperbesar dari 500px */
+      max-height: 700px;
       display: block;
       object-fit: contain;
     }
@@ -254,12 +278,10 @@ const quota = event.quota || 0
           </div>
         )}
 
-        <!-- POSTER DI BAWAH JUDUL (Container menyesuaikan ukuran flyer) -->
+        <!-- POSTER DI BAWAH JUDUL -->
         {event.poster && (
-          <div class="event-poster-wrapper">
-            <div class="event-poster-inline">
-              <img src={urlFor(event.poster).width(1200).url()} alt={event.title} />
-            </div>
+          <div class="event-poster-inline">
+            <img src={urlFor(event.poster).width(1200).url()} alt={event.title} />
           </div>
         )}
       </div>
@@ -302,18 +324,20 @@ const quota = event.quota || 0
           </div>
         )}
 
-        <!-- Biaya -->
-        <div class="info-item">
-          <p class="info-label">💰 Biaya</p>
-          <p class="info-value" style="font-size: 1.25rem; font-weight: 700;">
-            {event.price ? `Rp ${event.price.toLocaleString('id-ID')}` : 'Gratis'}
-          </p>
-        </div>
+        <!-- BIAYA: DINAMIS - Hanya tampil jika ada nilai valid (bukan 0, bukan kosong) -->
+        {displayPrice && (
+          <div class="info-item">
+            <p class="info-label">💰 Biaya</p>
+            <p class="info-value" style="font-size: 1.25rem; font-weight: 700;">
+              {displayPrice}
+            </p>
+          </div>
+        )}
 
         <!-- Kuota Peserta (FIREBASE) -->
         {event.quota && (
           <div class="info-item">
-            <p class="info-label">👥 Kuota Peserta</p>
+            <p class="info-label"> Kuota Peserta</p>
             <p class="quota-display" id="firebase-quota" data-slug={event.slug.current} data-initial={currentCount}>
               {currentCount} / {quota} peserta
             </p>
@@ -323,7 +347,7 @@ const quota = event.quota || 0
         <!-- Kontak PIC -->
         {event.contactPIC && (
           <div class="info-item">
-            <p class="info-label">📞 Kontak PIC</p>
+            <p class="info-label"> Kontak PIC</p>
             <p class="info-value">{event.contactPIC}</p>
           </div>
         )}
@@ -486,7 +510,7 @@ const quota = event.quota || 0
       };
 
       dbScript.onerror = function() {
-        console.error(' Gagal memuat Firebase SDK!');
+        console.error('❌ Gagal memuat Firebase SDK!');
       };
     });
   </script>
