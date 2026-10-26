@@ -13,43 +13,36 @@ const eventsDescription = eventsSettings.description || 'Agenda kegiatan, gowes 
 
 // Ambil semua event, urutkan dari tanggal terdekat
 const events = await client.fetch(`*[_type == "event"] | order(startDate asc){
-  title,
-  slug,
-  startDate,
-  endDate,
-  category,
-  location,
-  description,
-  poster,
-  status,
-  price,
-  quota,
-  registeredCount,
-  registrationLink,
-  contactPIC,
-  meetingPoint,
-  finishPoint,
-  isFeatured
+  title, slug, startDate, endDate, category, location, description, poster, status, price, quota, registeredCount, registrationLink, contactPIC, meetingPoint, finishPoint, isFeatured
 }`)
 
-// Fungsi helper untuk format tanggal
+// Helper functions
 function formatDate(dateStr) {
   const date = new Date(dateStr)
   return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-// Fungsi helper untuk format waktu
 function formatTime(dateStr) {
   const date = new Date(dateStr)
   return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
 }
 
-// Fungsi helper untuk Google Calendar URL
+function getStatusBadge(status) {
+  const statusMap = {
+    'coming-soon': { label: 'COMING SOON', color: '#E8C547', bg: 'rgba(232, 197, 71, 0.1)' },
+    'open': { label: 'OPEN REGISTRATION', color: '#22C55E', bg: 'rgba(34, 197, 94, 0.1)' },
+    'full': { label: 'FULL', color: '#EF4444', bg: 'rgba(239, 68, 68, 0.1)' },
+    'finished': { label: 'SELESAI', color: '#6B7280', bg: 'rgba(107, 114, 128, 0.1)' },
+    'cancelled': { label: 'DIBATALKAN', color: '#6B7280', bg: 'rgba(107, 114, 128, 0.1)' },
+  }
+  return statusMap[status] || statusMap['coming-soon']
+}
+
+// Generate Google Calendar URL
 function getGoogleCalendarUrl(event) {
   const startDate = new Date(event.startDate)
-  const endDate = event.endDate ? new Date(event.endDate) : new Date(startDate.getTime() + 2 * 60 * 60 * 1000) // Default 2 jam
+  const endDate = event.endDate ? new Date(event.endDate) : new Date(startDate.getTime() + 2 * 60 * 60 * 1000)
   
-  // Format: YYYYMMDDTHHMMSSZ (UTC)
   const formatDateForGCal = (date) => {
     return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
   }
@@ -64,41 +57,19 @@ function getGoogleCalendarUrl(event) {
   
   return 'https://calendar.google.com/calendar/render?' + params.toString()
 }
-
-// Fungsi helper untuk status badge
-function getStatusBadge(status) {
-  const statusMap = {
-    'coming-soon': { label: 'COMING SOON', color: '#E8C547', bg: 'rgba(232, 197, 71, 0.1)' },
-    'open': { label: 'OPEN REGISTRATION', color: '#22C55E', bg: 'rgba(34, 197, 94, 0.1)' },
-    'full': { label: 'FULL', color: '#EF4444', bg: 'rgba(239, 68, 68, 0.1)' },
-    'finished': { label: 'SELESAI', color: '#6B7280', bg: 'rgba(107, 114, 128, 0.1)' },
-    'cancelled': { label: 'DIBATALKAN', color: '#6B7280', bg: 'rgba(107, 114, 128, 0.1)' },
-  }
-  return statusMap[status] || statusMap['coming-soon']
-}
 ---
 
 <Layout settings={settings}>
   <style>
-    html, body { overflow-x: hidden; max-width: 100vw; }
+    html, body { overflow-x: hidden !important; max-width: 100vw !important; }
     * { box-sizing: border-box; }
 
-    /* POSTER DINAMIS - Rasio asli terjaga */
     .event-poster {
-      width: 100%;
-      height: auto;
-      display: block;
-      background: #F0F0F0;
-      overflow: hidden;
-      margin-bottom: 0;
+      width: 100%; height: auto; display: block;
+      background: #F0F0F0; overflow: hidden; margin-bottom: 0;
     }
-    .event-poster img {
-      width: 100%;
-      height: auto;
-      display: block;
-    }
+    .event-poster img { width: 100%; height: auto; display: block; }
 
-    /* Desktop layout */
     .event-card {
       border-right: 1px solid var(--border, #E5E5E5);
       border-bottom: 1px solid var(--border, #E5E5E5);
@@ -116,33 +87,59 @@ function getStatusBadge(status) {
       gap: 2rem;
     }
 
-    .event-info-item {
-      padding: 1rem 0;
+    .event-info-item { padding: 1rem 0; }
+
+    /* ===== PERBAIKAN TOMBOL HADIR ===== */
+    .attend-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #FFFFFF !important; /* Teks putih eksplisit */
+      background-color: #C84B8E !important; /* Background pink eksplisit */
+      border: 2px solid #C84B8E !important;
+      border-radius: 4px;
+      padding: 1rem 1.5rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: 'Space Grotesk', sans-serif;
+      text-decoration: none;
+    }
+    
+    .attend-btn:hover:not(:disabled) {
+      background-color: #A03D72 !important; /* Pink lebih gelap saat hover */
+      border-color: #A03D72 !important;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(200, 75, 142, 0.3);
+    }
+    
+    .attend-btn:disabled {
+      background-color: #22C55E !important; /* Hijau saat sudah terdaftar */
+      border-color: #22C55E !important;
+      color: #FFFFFF !important;
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+    
+    .attend-btn.loading {
+      opacity: 0.7;
+      cursor: wait;
     }
 
-    .event-info-item:not(:last-child) {
-      margin-bottom: 0;
-    }
-
-    /* Mobile responsive */
     @media (max-width: 768px) {
       .event-card {
         grid-template-columns: 1fr !important;
         gap: 2rem !important;
         padding: 1.5rem !important;
       }
-      .event-info-grid { 
-        grid-template-columns: 1fr !important; 
-        gap: 1.5rem !important;
-      }
-      .event-info-item {
-        padding: 1.25rem 0;
-        border-bottom: 1px solid var(--border, #E5E5E5);
-      }
-      .event-info-item:last-child {
-        border-bottom: none;
-        padding-bottom: 0;
-      }
+      .event-info-grid { grid-template-columns: 1fr !important; gap: 1.5rem !important; }
+      .event-info-item { padding: 1.25rem 0; border-bottom: 1px solid var(--border, #E5E5E5); }
+      .event-info-item:last-child { border-bottom: none; padding-bottom: 0; }
       h2 { font-size: 1.5rem !important; word-break: break-word; }
       p { font-size: 0.95rem !important; }
     }
@@ -217,12 +214,12 @@ function getStatusBadge(status) {
                   </span>
                 </div>
 
-                <!-- Info Grid (Tanggal, Titik Kumpul, Titik Finish, Kuota) -->
+                <!-- Info Grid -->
                 <div class="event-info-grid" style="margin-bottom: 2rem; padding: 2rem; background: #FAFAFA; border: 1px solid var(--border, #E5E5E5);">
                   
                   <!-- Tanggal & Waktu -->
                   <div class="event-info-item">
-                    <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 0.75rem; font-weight: 600;"> Tanggal & Waktu</p>
+                    <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 0.75rem; font-weight: 600;">📅 Tanggal & Waktu</p>
                     <p style="font-size: 1rem; color: #111; font-weight: 600; margin-bottom: 0.25rem; line-height: 1.4;">
                       {formatDate(event.startDate)}
                     </p>
@@ -247,17 +244,17 @@ function getStatusBadge(status) {
                     </div>
                   )}
 
-                  <!-- Kuota Peserta -->
+                  <!-- Kuota Peserta (DENGAN ID UNTUK FIREBASE) -->
                   {event.quota && (
                     <div class="event-info-item">
                       <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 0.75rem; font-weight: 600;">👥 Kuota Peserta</p>
-                      <p id={'count-' + event.slug.current} style="font-size: 1rem; color: #111; font-weight: 600;">
+                      <p class="quota-display" data-slug={event.slug.current} data-initial={currentCount} style="font-size: 1rem; color: #111; font-weight: 600;">
                         {currentCount} / {quota} peserta
                       </p>
                     </div>
                   )}
 
-                  <!-- Kontak PIC (jika ada) -->
+                  <!-- Kontak PIC -->
                   {event.contactPIC && (
                     <div class="event-info-item">
                       <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 0.75rem; font-weight: 600;">📞 Kontak PIC</p>
@@ -281,7 +278,7 @@ function getStatusBadge(status) {
                     </a>
                   )}
                   
-                  <!-- TOMBOL ADD TO CALENDAR -->
+                  <!-- ADD TO CALENDAR -->
                   {event.status !== 'finished' && event.status !== 'cancelled' && (
                     <a 
                       href={calendarUrl}
@@ -295,20 +292,16 @@ function getStatusBadge(status) {
                     </a>
                   )}
 
-                  <!-- TOMBOL INTERAKTIF "SAYA AKAN HADIR" -->
+                  <!-- TOMBOL SAYA AKAN HADIR (FIREBASE) -->
                   {event.status === 'open' && event.quota && (
-                  <button 
-                    class="attend-btn"
-                    data-slug={event.slug.current}
-                    data-count={currentCount}
-                    data-quota={quota}
-                    style="display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: white; background: #C84B8E; border: 2px solid #C84B8E; padding: 1rem 1.5rem; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"
-                    onmouseover="this.style.backgroundColor='#A03D72'; this.style.borderColor='#A03D72'"
-                    onmouseout="this.style.backgroundColor='#C84B8E'; this.style.borderColor='#C84B8E'"
-                  >
-                    🙋 Saya akan hadir
-                  </button>
-                )}
+                    <button 
+                      class="attend-btn"
+                      data-slug={event.slug.current}
+                      data-quota={quota}
+                    >
+                      🙋 Saya akan hadir
+                    </button>
+                  )}
 
                   {event.mapsLink && (
                     <a 
@@ -319,7 +312,7 @@ function getStatusBadge(status) {
                       onmouseover="this.style.backgroundColor='var(--text, #111111)'; this.style.color='#FAFAFA'"
                       onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--text, #111111)'"
                     >
-                      ️ Lihat Peta Rute
+                      🗺️ Lihat Peta Rute
                     </a>
                   )}
                 </div>
@@ -336,44 +329,139 @@ function getStatusBadge(status) {
     )}
   </section>
 
-  <!-- SCRIPT INTERAKTIF PER-DEVICE -->
+  <!-- FIREBASE SDK + LOGIKA TOMBOL HADIR (COMPAT VERSION) -->
   <script is:inline>
     document.addEventListener('DOMContentLoaded', function() {
-      const attendButtons = document.querySelectorAll('.attend-btn');
       
-      attendButtons.forEach(btn => {
-        const slug = btn.getAttribute('data-slug');
-        const currentCount = parseInt(btn.getAttribute('data-count')) || 0;
-        const quota = parseInt(btn.getAttribute('data-quota')) || 0;
-        const countDisplay = document.getElementById('count-' + slug);
+      // 1. Load Firebase Compat SDKs secara dinamis
+      const appScript = document.createElement('script');
+      appScript.src = 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js';
+      document.head.appendChild(appScript);
+
+      const dbScript = document.createElement('script');
+      dbScript.src = 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js';
+      document.head.appendChild(dbScript);
+
+      dbScript.onload = function() {
+        console.log('✅ Firebase SDK Loaded');
         
-        const storageKey = 'ajgr_attended_' + slug;
-        const hasAttended = localStorage.getItem(storageKey);
+        // 2. Konfigurasi Firebase
+        const firebaseConfig = {
+          apiKey: "AIzaSyBnwsQrgK-D_1GTEsl10WtIJdw180o-CtA",
+          authDomain: "ajgr-events.firebaseapp.com",
+          databaseURL: "https://ajgr-events-default-rtdb.asia-southeast1.firebasedatabase.app",
+          projectId: "ajgr-events",
+          storageBucket: "ajgr-events.appspot.com",
+          messagingSenderId: "358289277112",
+          appId: "1:358289277112:web:8a5e4a2961670fd144f44d"
+        };
 
-        function markAsAttended() {
-          btn.textContent = '✓ ANDA SUDAH TERDAFTAR';
-          btn.disabled = true;
-          btn.style.backgroundColor = '#22C55E';
-          btn.style.cursor = 'not-allowed';
-          btn.removeAttribute('onmouseover');
-          btn.removeAttribute('onmouseout');
+        // Inisialisasi
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        console.log('✅ Firebase Initialized');
+
+        // 3. Real-time Listener untuk Kuota
+        const quotaDisplays = document.querySelectorAll('.quota-display');
+        console.log('Ditemukan ' + quotaDisplays.length + ' elemen kuota');
+        
+        quotaDisplays.forEach(display => {
+          const slug = display.getAttribute('data-slug');
+          const initialCount = parseInt(display.getAttribute('data-initial')) || 0;
           
-          if (countDisplay) {
-            countDisplay.textContent = (currentCount + 1) + ' / ' + quota + ' peserta';
-            countDisplay.style.color = '#22C55E';
-          }
-        }
+          // Ambil quota dari tombol di card yang sama
+          const card = display.closest('.event-card');
+          const attendBtn = card ? card.querySelector('.attend-btn') : null;
+          const quota = attendBtn ? parseInt(attendBtn.getAttribute('data-quota')) : 25;
 
-        if (hasAttended) {
-          markAsAttended();
-        } else {
-          btn.addEventListener('click', function(e) {
-            e.preventDefault();
-            localStorage.setItem(storageKey, 'true');
-            markAsAttended();
+          const eventRef = database.ref('events/' + slug + '/attendeeCount');
+          
+          // Listen real-time
+          eventRef.on('value', (snapshot) => {
+            const count = snapshot.val() !== null ? snapshot.val() : initialCount;
+            display.textContent = count + ' / ' + quota + ' peserta';
+            
+            if (count >= quota) {
+              display.style.color = '#EF4444';
+              display.style.fontWeight = '700';
+            } else if (count > initialCount) {
+              display.style.color = '#22C55E';
+            }
           });
+        });
+
+        // 4. Logika Tombol "Saya akan hadir"
+        const buttons = document.querySelectorAll('.attend-btn');
+        console.log('Ditemukan ' + buttons.length + ' tombol hadir');
+        
+        buttons.forEach(btn => {
+          const slug = btn.getAttribute('data-slug');
+          const quota = parseInt(btn.getAttribute('data-quota'));
+          const storageKey = 'ajgr_attended_' + slug;
+
+          // Cek apakah sudah pernah klik di device ini
+          if (localStorage.getItem(storageKey)) {
+            markAsAttended(btn);
+            return;
+          }
+
+          btn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            if (localStorage.getItem(storageKey)) return;
+
+            // Loading state
+            btn.disabled = true;
+            btn.classList.add('loading');
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '⏳ Memproses...';
+
+            try {
+              const countRef = database.ref('events/' + slug + '/attendeeCount');
+              
+              // Ambil nilai saat ini
+              const snapshot = await countRef.once('value');
+              const currentCount = snapshot.val() || 0;
+
+              // Cek kuota
+              if (currentCount >= quota) {
+                alert('Maaf, kuota sudah penuh!');
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+                btn.classList.remove('loading');
+                return;
+              }
+
+              // Increment counter
+              await countRef.set(currentCount + 1);
+              
+              // Simpan ke localStorage
+              localStorage.setItem(storageKey, 'true');
+              
+              // Update UI
+              markAsAttended(btn);
+
+            } catch (error) {
+              console.error('❌ Error:', error);
+              alert('Terjadi kesalahan: ' + error.message);
+              btn.disabled = false;
+              btn.innerHTML = originalHTML;
+              btn.classList.remove('loading');
+            }
+          });
+        });
+
+        // Fungsi helper untuk menandai tombol
+        function markAsAttended(btn) {
+          btn.innerHTML = '✓ ANDA SUDAH TERDAFTAR';
+          btn.disabled = true;
+          // Style sudah dihandle oleh CSS .attend-btn:disabled
+          btn.classList.remove('loading');
         }
-      });
+      };
+
+      dbScript.onerror = function() {
+        console.error('❌ Gagal memuat Firebase SDK!');
+      };
     });
   </script>
 </Layout>

@@ -66,35 +66,81 @@ function formatCategory(cat: string) {
 <Layout settings={settings}>
   <!-- CSS RESPONSIVE KHUSUS HOMEPAGE -->
   <style>
-    /* ===== BIKE FITTING MOBILE FIX ===== */
-    @media (max-width: 768px) {
-      .fitting-container {
-        padding: 1.5rem !important;
-      }
-      
-      .fitting-grid-2 {
-        grid-template-columns: 1fr !important;
-        gap: 1rem !important;
-      }
-      
-      .fitting-input {
-        width: 100% !important;
-        max-width: 100% !important;
-        box-sizing: border-box !important;
-      }
-      
-      .fitting-button {
-        padding: 0.9rem 1rem !important;
-        font-size: 0.8rem !important;
-      }
-      
-      .fitting-results-grid {
-        grid-template-columns: 1fr !important;
-      }
+    /* ===== EVENT POSTER: Dinamis sesuai rasio asli flyer ===== */
+    .event-poster-home {
+      width: 100%;
+      max-width: 500px;
+      margin: 0 auto;
+      background: #F5F5F5;
+      overflow: hidden;
+      position: relative;
+      border-radius: 4px;
+    }
+    .event-poster-home img {
+      width: 100%;
+      height: auto;
+      display: block;
+      object-fit: contain;
     }
 
-    /* ===== COLLAB FORM MOBILE FIX ===== */
+    /* ===== EVENT CARD: Compact & Centered ===== */
+    .event-card-home {
+      width: 100%;
+      max-width: 650px;
+      margin: 0 auto;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+    
+    .event-info {
+      margin-top: 1.25rem;
+      width: 100%;
+    }
+
+    /* ===== MARKETPLACE CARD: Lebih Besar ===== */
+    .marketplace-card-home {
+      width: 100%;
+      max-width: 550px;
+      margin: 0 auto;
+    }
+    
+    .marketplace-card-home .card-image {
+      width: 100%;
+      max-width: 480px;
+      height: 320px;
+      margin: 0 auto;
+    }
+    
+    .marketplace-card-home .card-content {
+      padding: 1.5rem;
+    }
+
+    /* ===== MOBILE: Poster tetap rapi ===== */
     @media (max-width: 768px) {
+      .event-poster-home {
+        max-width: 100%;
+      }
+      .event-card-home {
+        padding: 1.25rem;
+        max-width: 100%;
+      }
+      .marketplace-card-home {
+        max-width: 100%;
+      }
+      .marketplace-card-home .card-image {
+        max-width: 100%;
+        height: 260px;
+      }
+      .event-grid-home,
+      .marketplace-grid-home {
+        grid-template-columns: 1fr !important;
+      }
+      .fitting-grid-2 {
+        grid-template-columns: 1fr !important;
+      }
       .collab-grid-2 {
         grid-template-columns: 1fr !important;
       }
@@ -102,7 +148,7 @@ function formatCategory(cat: string) {
         padding: 0 !important;
         margin-bottom: 0 !important;
       }
-      .event-grid-home {
+      .fitting-results-grid {
         grid-template-columns: 1fr !important;
       }
     }
@@ -145,7 +191,7 @@ function formatCategory(cat: string) {
                 </div>
               ) : (
                 <div style="aspect-ratio: 16/10; background: linear-gradient(135deg, #C84B8E 0%, #E8C547 100%); margin-bottom: 1rem; display: flex; align-items: center; justify-content: center;">
-                  <span style="font-size: 3rem; color: white;">📖</span>
+                  <span style="font-size: 3rem; color: white;"></span>
                 </div>
               )}
               <span style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent, #C84B8E); display: block; margin-bottom: 0.5rem; font-weight: 600;">
@@ -188,7 +234,7 @@ function formatCategory(cat: string) {
               {bike.mainImage ? (
                 <img src={urlFor(bike.mainImage).width(600).url()} alt={bike.title} style="width: 100%; height: 100%; object-fit: cover;" />
               ) : (
-                <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 3rem;">🚲</div>
+                <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 3rem;"></div>
               )}
             </div>
             
@@ -256,7 +302,7 @@ function formatCategory(cat: string) {
     </section>
   )}
 
-  <!-- FEATURED MARKETPLACE SECTION -->
+  <!-- FEATURED MARKETPLACE SECTION (LEBIH BESAR) -->
   {showMarketplace && (
     <section style="padding: 6rem 0; border-top: 1px solid var(--border, #E5E5E5);">
       <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 3rem; border-bottom: 1px solid var(--border, #E5E5E5); padding-bottom: 1rem;">
@@ -274,31 +320,31 @@ function formatCategory(cat: string) {
       </div>
 
       {featuredMarketplace.length > 0 ? (
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem;">
+        <div class="marketplace-grid-home" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 2.5rem;">
           {featuredMarketplace.map((item: any) => {
             const statusColors: any = { available: '#22C55E', reserved: '#EAB308', sold: '#EF4444' }
             const statusLabels: any = { available: 'Tersedia', reserved: 'Reserved', sold: 'Terjual' }
             return (
-              <a href={`/marketplace/${item.slug.current}`} style="text-decoration: none; color: inherit; display: block; border: 1px solid var(--border, #E5E5E5); transition: background-color 0.3s ease; position: relative;" onmouseover="this.style.backgroundColor='#F8F8F8'" onmouseout="this.style.backgroundColor='transparent'">
+              <a href={`/marketplace/${item.slug.current}`} class="marketplace-card-home" style="text-decoration: none; color: inherit; display: block; border: 1px solid var(--border, #E5E5E5); transition: background-color 0.3s ease; position: relative; overflow: hidden;" onmouseover="this.style.backgroundColor='#F8F8F8'" onmouseout="this.style.backgroundColor='transparent'">
                 <div style="position: absolute; top: 1rem; right: 1rem; background: {statusColors[item.status] || '#22C55E'}; color: white; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; padding: 0.2rem 0.6rem; border-radius: 2px; z-index: 10;">
                   {statusLabels[item.status] || 'Tersedia'}
                 </div>
-                <div style="aspect-ratio: 16/10; background: #F5F5F5; overflow: hidden;">
+                <div class="card-image" style="aspect-ratio: 16/10; background: #F5F5F5; overflow: hidden;">
                   {item.images?.[0] ? (
-                    <img src={urlFor(item.images[0]).width(600).url()} alt={item.title} style="width: 100%; height: 100%; object-fit: cover;" />
+                    <img src={urlFor(item.images[0]).width(800).url()} alt={item.title} style="width: 100%; height: 100%; object-fit: cover;" />
                   ) : (
                     <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #C84B8E 0%, #E8C547 100%);">
                       <span style="font-size: 3rem; color: white;">🔧</span>
                     </div>
                   )}
                 </div>
-                <div style="padding: 1.5rem;">
+                <div class="card-content" style="padding: 1.5rem;">
                   <span style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666);">
                     {formatCategory(item.category)} {item.brand ? `· ${item.brand}` : ''}
                   </span>
-                  <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.25rem; font-weight: 600; margin: 0.5rem 0; line-height: 1.3;">{item.title}</h3>
-                  <p style="font-size: 1.25rem; font-weight: 700; color: var(--text, #111); margin-bottom: 0.5rem;">Rp {item.price?.toLocaleString('id-ID')}</p>
-                  <p style="font-size: 0.85rem; color: var(--text-muted, #666);">📍 {item.sellerLocation || '-'}</p>
+                  <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.35rem; font-weight: 600; margin: 0.5rem 0; line-height: 1.3;">{item.title}</h3>
+                  <p style="font-size: 1.35rem; font-weight: 700; color: var(--text, #111); margin-bottom: 0.5rem;">Rp {item.price?.toLocaleString('id-ID')}</p>
+                  <p style="font-size: 0.9rem; color: var(--text-muted, #666);">📍 {item.sellerLocation || '-'}</p>
                 </div>
               </a>
             )
@@ -396,7 +442,7 @@ function formatCategory(cat: string) {
     </section>
   )}
 
-  <!-- UPCOMING EVENTS SECTION (DINAMIS POSTER) -->
+  <!-- UPCOMING EVENTS SECTION (POSTER DINAMIS) -->
   {showEvents && (
     <section style="padding: 6rem 0; border-top: 1px solid var(--border, #E5E5E5);">
       <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 3rem; border-bottom: 1px solid var(--border, #E5E5E5); padding-bottom: 1rem;">
@@ -414,7 +460,7 @@ function formatCategory(cat: string) {
       </div>
 
       {featuredEvents.length > 0 ? (
-        <div class="event-grid-home" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem;">
+        <div class="event-grid-home" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 2rem;">
           {featuredEvents.map((event: any) => {
             const statusColors: any = {
               'coming-soon': '#E8C547',
@@ -432,21 +478,23 @@ function formatCategory(cat: string) {
             }
             
             return (
-              <a href={`/events/${event.slug.current}`} style="text-decoration: none; color: inherit; display: block; border: 1px solid var(--border, #E5E5E5); transition: all 0.3s ease; overflow: hidden; background: white;"
+              <a href={`/events/${event.slug.current}`} class="event-card-home" style="text-decoration: none; color: inherit; border: 1px solid var(--border, #E5E5E5); transition: all 0.3s ease; overflow: hidden; background: white;"
                  onmouseover="this.style.borderColor='var(--accent, #C84B8E)'; this.style.transform='translateY(-4px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" 
                  onmouseout="this.style.borderColor='var(--border, #E5E5E5)'; this.style.transform='translateY(0)'; this.style.boxShadow='none'">
                 
-                <div style="width: 100%; background: #F5F5F5; overflow: hidden;">
+                <!-- POSTER: Dinamis sesuai rasio asli -->
+                <div class="event-poster-home">
                   {event.poster ? (
-                    <img src={urlFor(event.poster).width(800).url()} alt={event.title} style="width: 100%; height: auto; display: block; object-fit: contain;" />
+                    <img src={urlFor(event.poster).width(800).url()} alt={event.title} />
                   ) : (
-                    <div style="aspect-ratio: 4/3; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #C84B8E 0%, #E8C547 100%);">
+                    <div style="width: 100%; height: 240px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #C84B8E 0%, #E8C547 100%);">
                       <span style="font-size: 3rem; color: white;">📅</span>
                     </div>
                   )}
                 </div>
 
-                <div style="padding: 1.5rem;">
+                <!-- INFO EVENT DI BAWAH POSTER -->
+                <div class="event-info">
                   <span style="display: inline-block; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.15em; color: {statusColors[event.status] || '#E8C547'}; margin-bottom: 0.5rem;">
                     {statusLabels[event.status] || 'COMING SOON'}
                   </span>
@@ -456,7 +504,7 @@ function formatCategory(cat: string) {
                   <p style="font-size: 0.85rem; color: var(--text-muted, #666); margin-bottom: 1rem;">
                     {new Date(event.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })} · {event.location}
                   </p>
-                  <span style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent, #C84B8E); display: inline-flex; align-items: center; gap: 0.5rem;">
+                  <span style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent, #C84B8E); display: inline-flex; align-items: center; gap: 0.5rem; justify-content: center;">
                     Lihat Detail →
                   </span>
                 </div>
@@ -561,7 +609,7 @@ function formatCategory(cat: string) {
       }
 
       const waMessage = 
-`Halo AJGR.cc! 👋
+`Halo AJGR.cc! 
 
 Saya ingin mengajukan kerja sama melalui website.
 

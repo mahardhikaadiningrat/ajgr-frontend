@@ -5,81 +5,224 @@ import Layout from '../../layouts/Layout.astro'
 import client from '../../lib/sanity'
 import { urlFor, getSiteSettings } from '../../lib/sanity'
 
-// Ambil slug dari URL
 const { slug } = Astro.params
 
 // Ambil data event berdasarkan slug
 const event = await client.fetch(`*[_type == "event" && slug.current == $slug][0]{
-  title,
-  slug,
-  startDate,
-  endDate,
-  category,
-  location,
-  mapsLink,
-  description,
-  poster,
-  status,
-  price,
-  quota,
-  registeredCount,
-  registrationLink,
-  contactPIC,
-  isFeatured
+  title, slug, startDate, endDate, category, location, description, poster, status, price, quota, registeredCount, registrationLink, contactPIC, meetingPoint, finishPoint, mapsLink
 }`, { slug })
 
-// Jika event tidak ditemukan, redirect ke halaman events
 if (!event) {
   return Astro.redirect('/events')
 }
 
-// Ambil settings
 const settings = await getSiteSettings()
 
 // Helper functions
 function formatDate(dateStr) {
   const date = new Date(dateStr)
-  return date.toLocaleDateString('id-ID', { 
-    weekday: 'long',
-    day: 'numeric', 
-    month: 'long', 
-    year: 'numeric' 
-  })
+  return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 function formatTime(dateStr) {
   const date = new Date(dateStr)
-  return date.toLocaleTimeString('id-ID', { 
-    hour: '2-digit', 
-    minute: '2-digit' 
-  })
+  return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
 }
 
-function getStatusBadge(status) {
-  const statusMap = {
-    'coming-soon': { label: 'COMING SOON', color: '#E8C547', bg: 'rgba(232, 197, 71, 0.1)' },
-    'open': { label: 'OPEN REGISTRATION', color: '#22C55E', bg: 'rgba(34, 197, 94, 0.1)' },
-    'full': { label: 'FULL', color: '#EF4444', bg: 'rgba(239, 68, 68, 0.1)' },
-    'finished': { label: 'SELESAI', color: '#6B7280', bg: 'rgba(107, 114, 128, 0.1)' },
-    'cancelled': { label: 'DIBATALKAN', color: '#6B7280', bg: 'rgba(107, 114, 128, 0.1)' },
-  }
-  return statusMap[status] || statusMap['coming-soon']
+function formatDay(dateStr) {
+  const date = new Date(dateStr)
+  return date.toLocaleDateString('id-ID', { weekday: 'long' })
 }
 
-function generateGoogleCalendarLink(event) {
-  const start = new Date(event.startDate).toISOString().replace(/-|:|\.\d+/g, '')
-  const end = event.endDate 
-    ? new Date(event.endDate).toISOString().replace(/-|:|\.\d+/g, '')
-    : new Date(new Date(event.startDate).getTime() + 2 * 60 * 60 * 1000).toISOString().replace(/-|:|\.\d+/g, '')
+// Generate Google Calendar URL
+function getGoogleCalendarUrl(event) {
+  const startDate = new Date(event.startDate)
+  const endDate = event.endDate ? new Date(event.endDate) : new Date(startDate.getTime() + 2 * 60 * 60 * 1000)
   
-  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.title)}&dates=${start}/${end}&details=${encodeURIComponent(event.description || '')}&location=${encodeURIComponent(event.location || '')}`
+  const formatDateForGCal = (date) => {
+    return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
+  }
+  
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: event.title,
+    dates: formatDateForGCal(startDate) + '/' + formatDateForGCal(endDate),
+    details: event.description || '',
+    location: event.meetingPoint || event.finishPoint || event.location || '',
+  })
+  
+  return 'https://calendar.google.com/calendar/render?' + params.toString()
 }
 
-const badge = getStatusBadge(event.status)
-const calendarLink = generateGoogleCalendarLink(event)
+const calendarUrl = getGoogleCalendarUrl(event)
+const currentCount = event.registeredCount || 0
+const quota = event.quota || 0
 ---
 
 <Layout settings={settings}>
+  <style>
+    html, body { overflow-x: hidden !important; max-width: 100vw !important; }
+    * { box-sizing: border-box; }
+
+    .event-detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 400px;
+      gap: 3rem;
+      padding: 3rem 0;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .event-info-sidebar {
+      position: sticky;
+      top: 100px;
+      padding: 2rem;
+      background: white;
+      border: 1px solid var(--border, #E5E5E5);
+      border-radius: 4px;
+      height: fit-content;
+    }
+
+    .info-item {
+      padding: 1.5rem 0;
+      border-bottom: 1px solid var(--border, #E5E5E5);
+    }
+    .info-item:last-child {
+      border-bottom: none;
+    }
+
+    .info-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #666;
+      margin-bottom: 0.75rem;
+      font-weight: 600;
+    }
+
+    .info-value {
+      font-size: 1rem;
+      color: #111;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+
+    .quota-display {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #111;
+    }
+
+    /* ===== PERBAIKAN: Container flyer menyesuaikan ukuran asli ===== */
+    .event-poster-wrapper {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 2rem 0;
+      padding: 1rem;
+      background: #F8F8F8;
+      border-radius: 8px;
+      border: 1px solid var(--border, #E5E5E5);
+    }
+
+    .event-poster-inline {
+      display: inline-block;
+      max-width: 100%;
+    }
+    
+    .event-poster-inline img {
+      width: auto;
+      height: auto;
+      max-width: 100%;
+      max-height: 700px; /* ← Diperbesar dari 500px */
+      display: block;
+      object-fit: contain;
+    }
+
+    /* Tombol Hadir */
+    .attend-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #FFFFFF !important;
+      background-color: #C84B8E !important;
+      border: 2px solid #C84B8E !important;
+      border-radius: 4px;
+      padding: 1rem 1.5rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: 'Space Grotesk', sans-serif;
+      text-decoration: none;
+      width: 100%;
+      margin-top: 1rem;
+    }
+    
+    .attend-btn:hover:not(:disabled) {
+      background-color: #A03D72 !important;
+      border-color: #A03D72 !important;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(200, 75, 142, 0.3);
+    }
+    
+    .attend-btn:disabled {
+      background-color: #22C55E !important;
+      border-color: #22C55E !important;
+      color: #FFFFFF !important;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+    
+    .attend-btn.loading {
+      opacity: 0.7;
+      cursor: wait;
+    }
+
+    .calendar-btn {
+      display: block;
+      width: 100%;
+      text-align: center;
+      padding: 1rem;
+      border: 1px solid var(--border, #E5E5E5);
+      background: white;
+      text-decoration: none;
+      color: var(--text, #111);
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      transition: all 0.2s ease;
+      margin-top: 1rem;
+    }
+    .calendar-btn:hover {
+      background: var(--text, #111);
+      color: white;
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 768px) {
+      .event-poster-inline img {
+        max-height: none;
+        width: 100%;
+      }
+      
+      .event-detail-grid {
+        grid-template-columns: 1fr !important;
+        gap: 2rem !important;
+        padding: 1.5rem !important;
+      }
+      .event-info-sidebar {
+        position: static !important;
+        padding: 1.5rem !important;
+      }
+      h1 { font-size: 1.75rem !important; }
+    }
+  </style>
+
   <!-- BREADCRUMB -->
   <nav style="padding: 2rem 0; border-bottom: 1px solid var(--border, #E5E5E5);">
     <a href="/events" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); text-decoration: none;">
@@ -87,161 +230,264 @@ const calendarLink = generateGoogleCalendarLink(event)
     </a>
   </nav>
 
-  <!-- HERO SECTION -->
-  <section style="padding: 4rem 0 3rem;">
-    <span style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); margin-bottom: 1rem; display: block;">
-      {event.category || 'EVENT'}
-    </span>
-    
-    <h1 style="font-family: 'Space Grotesk', sans-serif; font-size: clamp(2.5rem, 6vw, 5rem); font-weight: 600; letter-spacing: -0.03em; margin: 1rem 0 2rem; color: var(--text, #111); line-height: 1.05;">
-      {event.title}
-    </h1>
-    
-    <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 2rem;">
-      <span style="display: inline-block; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.15em; color: {badge.color}; background: {badge.bg}; padding: 0.4rem 0.8rem;">
-        {badge.label}
-      </span>
-      <span style="font-size: 0.85rem; color: var(--text-muted, #666);">
-        {formatDate(event.startDate)} · {formatTime(event.startDate)} WITA
-      </span>
-    </div>
-  </section>
+  <!-- EVENT DETAIL -->
+  <section>
+    <div class="event-detail-grid">
+      <!-- Left Column: Content + Poster -->
+      <div>
+        <!-- Category -->
+        <p style="font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); margin-bottom: 0.5rem;">
+          {event.category || 'EVENT'}
+        </p>
 
-  <!-- MAIN CONTENT GRID -->
-  <section style="padding: 2rem 0 6rem; display: grid; grid-template-columns: 1.5fr 1fr; gap: 4rem; align-items: start;">
-    
-    <!-- Left Column: Poster & Description -->
-    <div>
-      {event.poster ? (
-        <div style="aspect-ratio: 16/9; background: #F0F0F0; overflow: hidden; margin-bottom: 3rem;">
-          <img 
-            src={urlFor(event.poster).width(1200).url()} 
-            alt={event.title}
-            style="width: 100%; height: 100%; object-fit: cover;"
-          />
-        </div>
-      ) : (
-        <div style="aspect-ratio: 16/9; background: linear-gradient(135deg, #C84B8E 0%, #E8C547 100%); display: flex; align-items: center; justify-content: center; margin-bottom: 3rem;">
-          <span style="font-size: 5rem; color: white;">📅</span>
-        </div>
-      )}
+        <!-- Title -->
+        <h1 style="font-family: 'Space Grotesk', sans-serif; font-size: 2.5rem; font-weight: 600; letter-spacing: -0.02em; color: var(--text, #111); margin-bottom: 1rem; line-height: 1.2;">
+          {event.title}
+        </h1>
 
-      {event.description && (
-        <div style="border-top: 1px solid var(--border, #E5E5E5); padding-top: 2rem;">
-          <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.25rem; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 1rem; color: var(--text, #111);">
-            Tentang Event
-          </h2>
-          <p style="font-size: 1rem; color: var(--text-muted, #666); line-height: 1.8; white-space: pre-wrap;">
-            {event.description}
-          </p>
-        </div>
-      )}
-    </div>
-
-    <!-- Right Column: Info Sidebar -->
-    <aside style="position: sticky; top: 100px;">
-      <div style="border: 1px solid var(--border, #E5E5E5); padding: 2rem; margin-bottom: 1.5rem;">
-        <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.15em; color: var(--text-muted, #666); margin-bottom: 1.5rem;">
-          Detail Event
-        </h3>
-
-        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-          <div style="padding-bottom: 1.5rem; border-bottom: 1px solid var(--border, #E5E5E5);">
-            <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #999; margin-bottom: 0.5rem;">Tanggal & Waktu</p>
-            <p style="font-family: 'Space Grotesk', sans-serif; font-size: 1rem; font-weight: 600; color: var(--text, #111); line-height: 1.4;">
-              {formatDate(event.startDate)}
+        <!-- Description -->
+        {event.description && (
+          <div style="margin-bottom: 2rem;">
+            <p style="font-size: 1rem; color: var(--text-muted, #666); line-height: 1.8; white-space: pre-wrap;">
+              {event.description}
             </p>
-            <p style="font-size: 0.9rem; color: var(--text-muted, #666);">
-              {formatTime(event.startDate)} WITA
-            </p>
-            {event.endDate && (
-              <p style="font-size: 0.85rem; color: var(--text-muted, #666); margin-top: 0.5rem;">
-                s/d {formatDate(event.endDate)}
-              </p>
-            )}
           </div>
+        )}
 
-          {event.location && (
-            <div style="padding-bottom: 1.5rem; border-bottom: 1px solid var(--border, #E5E5E5);">
-              <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #999; margin-bottom: 0.5rem;">Lokasi</p>
-              <p style="font-size: 1rem; color: var(--text, #111); font-weight: 500; line-height: 1.5;">
-                {event.location}
-              </p>
+        <!-- POSTER DI BAWAH JUDUL (Container menyesuaikan ukuran flyer) -->
+        {event.poster && (
+          <div class="event-poster-wrapper">
+            <div class="event-poster-inline">
+              <img src={urlFor(event.poster).width(1200).url()} alt={event.title} />
             </div>
-          )}
-
-          {event.price && (
-            <div style="padding-bottom: 1.5rem; border-bottom: 1px solid var(--border, #E5E5E5);">
-              <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #999; margin-bottom: 0.5rem;">Biaya</p>
-              <p style="font-family: 'Space Grotesk', sans-serif; font-size: 1.25rem; font-weight: 600; color: var(--accent, #C84B8E);">
-                {event.price}
-              </p>
-            </div>
-          )}
-
-          {event.quota && (
-            <div style="padding-bottom: 1.5rem; border-bottom: 1px solid var(--border, #E5E5E5);">
-              <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #999; margin-bottom: 0.5rem;">Kuota Peserta</p>
-              <p style="font-size: 1rem; color: var(--text, #111); font-weight: 500;">
-                {event.registeredCount || 0} / {event.quota} peserta
-              </p>
-              <!-- Progress Bar -->
-              <div style="margin-top: 0.75rem; height: 4px; background: #F0F0F0; border-radius: 2px; overflow: hidden;">
-                <div style="height: 100%; width: {((event.registeredCount || 0) / event.quota) * 100}%; background: var(--accent, #C84B8E); transition: width 0.3s;"></div>
-              </div>
-            </div>
-          )}
-
-          {event.contactPIC && (
-            <div>
-              <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #999; margin-bottom: 0.5rem;">Kontak PIC</p>
-              <p style="font-size: 0.95rem; color: var(--text, #111); font-weight: 500;">
-                {event.contactPIC}
-              </p>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
-      <!-- Action Buttons -->
-      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+      <!-- Right Column: Sidebar Info -->
+      <aside class="event-info-sidebar">
+        
+        <!-- Tanggal & Waktu -->
+        <div class="info-item">
+          <p class="info-label">📅 Tanggal & Waktu</p>
+          <p class="info-value" style="font-weight: 600;">
+            {formatDay(event.startDate)}, {formatDate(event.startDate)}
+          </p>
+          <p class="info-value" style="color: #666; margin-top: 0.25rem;">
+            {formatTime(event.startDate)} WITA
+          </p>
+        </div>
+
+        <!-- Lokasi -->
+        {event.location && (
+          <div class="info-item">
+            <p class="info-label">📍 Lokasi</p>
+            <p class="info-value">{event.location}</p>
+          </div>
+        )}
+
+        <!-- Titik Kumpul -->
+        {event.meetingPoint && (
+          <div class="info-item">
+            <p class="info-label">🚩 Titik Kumpul</p>
+            <p class="info-value">{event.meetingPoint}</p>
+          </div>
+        )}
+
+        <!-- Titik Finish -->
+        {event.finishPoint && (
+          <div class="info-item">
+            <p class="info-label">🏁 Titik Finish</p>
+            <p class="info-value">{event.finishPoint}</p>
+          </div>
+        )}
+
+        <!-- Biaya -->
+        <div class="info-item">
+          <p class="info-label">💰 Biaya</p>
+          <p class="info-value" style="font-size: 1.25rem; font-weight: 700;">
+            {event.price ? `Rp ${event.price.toLocaleString('id-ID')}` : 'Gratis'}
+          </p>
+        </div>
+
+        <!-- Kuota Peserta (FIREBASE) -->
+        {event.quota && (
+          <div class="info-item">
+            <p class="info-label">👥 Kuota Peserta</p>
+            <p class="quota-display" id="firebase-quota" data-slug={event.slug.current} data-initial={currentCount}>
+              {currentCount} / {quota} peserta
+            </p>
+          </div>
+        )}
+
+        <!-- Kontak PIC -->
+        {event.contactPIC && (
+          <div class="info-item">
+            <p class="info-label">📞 Kontak PIC</p>
+            <p class="info-value">{event.contactPIC}</p>
+          </div>
+        )}
+
+        <!-- Action Buttons -->
+        {event.status === 'open' && event.quota && (
+          <button 
+            class="attend-btn"
+            id="attend-btn-detail"
+            data-slug={event.slug.current}
+            data-quota={quota}
+          >
+            🙋 Saya akan hadir
+          </button>
+        )}
+
+        <a 
+          href={calendarUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="calendar-btn"
+        >
+          📅 Tambah ke Google Calendar
+        </a>
+
         {event.registrationLink && event.status !== 'finished' && event.status !== 'cancelled' && (
           <a 
             href={event.registrationLink}
             target="_blank"
             rel="noopener noreferrer"
-            style="display: block; text-align: center; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: white; background: var(--text, #111); text-decoration: none; padding: 1rem; transition: all 0.2s ease;"
+            style="display: block; width: 100%; text-align: center; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: white; background: var(--text, #111); text-decoration: none; padding: 1rem; margin-top: 1rem; transition: all 0.2s ease;"
             onmouseover="this.style.backgroundColor='var(--accent, #C84B8E)'"
             onmouseout="this.style.backgroundColor='var(--text, #111)'"
           >
-            Daftar Sekarang →
+            📝 Daftar Sekarang
           </a>
         )}
-
-        {event.mapsLink && (
-          <a 
-            href={event.mapsLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            style="display: block; text-align: center; font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text, #111); text-decoration: none; border: 1px solid var(--text, #111); padding: 1rem; transition: all 0.2s ease;"
-            onmouseover="this.style.backgroundColor='var(--text, #111)'; this.style.color='#FAFAFA'"
-            onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--text, #111)'"
-          >
-             Buka di Google Maps
-          </a>
-        )}
-
-        <a 
-          href={calendarLink}
-          target="_blank"
-          rel="noopener noreferrer"
-          style="display: block; text-align: center; font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); text-decoration: none; border: 1px solid var(--border, #E5E5E5); padding: 1rem; transition: all 0.2s ease;"
-          onmouseover="this.style.borderColor='var(--text, #111)'; this.style.color='var(--text, #111)'"
-          onmouseout="this.style.borderColor='var(--border, #E5E5E5)'; this.style.color='var(--text-muted, #666)'"
-        >
-          📅 Tambah ke Google Calendar
-        </a>
-      </div>
-    </aside>
+      </aside>
+    </div>
   </section>
+
+  <!-- FIREBASE SDK + LOGIKA TOMBOL HADIR -->
+  <script is:inline>
+    document.addEventListener('DOMContentLoaded', function() {
+      
+      // 1. Load Firebase Compat SDKs
+      const appScript = document.createElement('script');
+      appScript.src = 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js';
+      document.head.appendChild(appScript);
+
+      const dbScript = document.createElement('script');
+      dbScript.src = 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js';
+      document.head.appendChild(dbScript);
+
+      dbScript.onload = function() {
+        console.log('✅ Firebase SDK Loaded');
+        
+        // 2. Konfigurasi Firebase
+        const firebaseConfig = {
+          apiKey: "AIzaSyBnwsQrgK-D_1GTEsl10WtIJdw180o-CtA",
+          authDomain: "ajgr-events.firebaseapp.com",
+          databaseURL: "https://ajgr-events-default-rtdb.asia-southeast1.firebasedatabase.app",
+          projectId: "ajgr-events",
+          storageBucket: "ajgr-events.appspot.com",
+          messagingSenderId: "358289277112",
+          appId: "1:358289277112:web:8a5e4a2961670fd144f44d"
+        };
+
+        // Inisialisasi
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        console.log('✅ Firebase Initialized');
+
+        // 3. Real-time Listener untuk Kuota
+        const quotaDisplay = document.getElementById('firebase-quota');
+        if (quotaDisplay) {
+          const slug = quotaDisplay.getAttribute('data-slug');
+          const initialCount = parseInt(quotaDisplay.getAttribute('data-initial')) || 0;
+          const quota = parseInt(quotaDisplay.textContent.split('/')[1]?.trim()) || 25;
+
+          const eventRef = database.ref('events/' + slug + '/attendeeCount');
+          
+          // Listen real-time
+          eventRef.on('value', (snapshot) => {
+            const count = snapshot.val() !== null ? snapshot.val() : initialCount;
+            quotaDisplay.textContent = count + ' / ' + quota + ' peserta';
+            
+            if (count >= quota) {
+              quotaDisplay.style.color = '#EF4444';
+              quotaDisplay.style.fontWeight = '700';
+            } else if (count > initialCount) {
+              quotaDisplay.style.color = '#22C55E';
+            }
+          });
+        }
+
+        // 4. Logika Tombol "Saya akan hadir"
+        const attendBtn = document.getElementById('attend-btn-detail');
+        if (attendBtn) {
+          const slug = attendBtn.getAttribute('data-slug');
+          const quota = parseInt(attendBtn.getAttribute('data-quota'));
+          const storageKey = 'ajgr_attended_' + slug;
+
+          // Cek apakah sudah pernah klik di device ini
+          if (localStorage.getItem(storageKey)) {
+            markAsAttended(attendBtn);
+          }
+
+          attendBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            if (localStorage.getItem(storageKey)) return;
+
+            // Loading state
+            attendBtn.disabled = true;
+            attendBtn.classList.add('loading');
+            const originalHTML = attendBtn.innerHTML;
+            attendBtn.innerHTML = '⏳ Memproses...';
+
+            try {
+              const countRef = database.ref('events/' + slug + '/attendeeCount');
+              
+              // Ambil nilai saat ini
+              const snapshot = await countRef.once('value');
+              const currentCount = snapshot.val() || 0;
+
+              // Cek kuota
+              if (currentCount >= quota) {
+                alert('Maaf, kuota sudah penuh!');
+                attendBtn.disabled = false;
+                attendBtn.innerHTML = originalHTML;
+                attendBtn.classList.remove('loading');
+                return;
+              }
+
+              // Increment counter
+              await countRef.set(currentCount + 1);
+              
+              // Simpan ke localStorage
+              localStorage.setItem(storageKey, 'true');
+              
+              // Update UI
+              markAsAttended(attendBtn);
+
+            } catch (error) {
+              console.error('❌ Error:', error);
+              alert('Terjadi kesalahan: ' + error.message);
+              attendBtn.disabled = false;
+              attendBtn.innerHTML = originalHTML;
+              attendBtn.classList.remove('loading');
+            }
+          });
+
+          // Fungsi helper
+          function markAsAttended(btn) {
+            btn.innerHTML = '✓ ANDA SUDAH TERDAFTAR';
+            btn.disabled = true;
+            btn.classList.remove('loading');
+          }
+        }
+      };
+
+      dbScript.onerror = function() {
+        console.error(' Gagal memuat Firebase SDK!');
+      };
+    });
+  </script>
 </Layout>
