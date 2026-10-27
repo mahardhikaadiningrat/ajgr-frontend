@@ -26,7 +26,11 @@ function formatDate(dateStr) {
 
 function formatTime(dateStr) {
   const date = new Date(dateStr)
-  return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+  return date.toLocaleTimeString('id-ID', { 
+    hour: '2-digit', 
+    minute: '2-digit',
+    timeZone: 'Asia/Makassar'  // ← TAMBAHKAN INI (WITA)
+  })
 }
 
 function formatDay(dateStr) {

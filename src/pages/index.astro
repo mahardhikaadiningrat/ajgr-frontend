@@ -45,7 +45,7 @@ const recentSellers = await client.fetch(`*[_type == "seller" && isFeatured == t
   name, category, address, whatsapp, logo
 }`)
 
-// 4. Ambil event terdekat (HANYA yang isFeatured == true)
+// 4. Ambil event terdekat
 const featuredEvents = await client.fetch(`*[_type == "event" && isFeatured == true] | order(startDate asc)[0...${eventsCount}]{
   title, slug, startDate, category, location, status, poster
 }`)
@@ -54,6 +54,20 @@ const featuredEvents = await client.fetch(`*[_type == "event" && isFeatured == t
 const featuredMarketplace = await client.fetch(`*[_type == "marketplace" && isFeatured == true] | order(_createdAt desc)[0...${marketplaceCount}]{
   title, slug, category, brand, price, status, sellerLocation, images
 }`)
+
+// 6. Ambil merchandise featured (DENGAN TRY-CATCH)
+let featuredMerchandise = null;
+try {
+  featuredMerchandise = await client.fetch(`*[_type == "merchandise" && isFeatured == true && status == "available"][0]{
+    title, slug, price, description, images, availableSizes, paymentMethods
+  }`)
+} catch (error) {
+  console.warn("⚠️ Query merchandise dilewati:", error.message);
+}
+
+// Ambil URL Google Sheets dan WA dari settings
+const sheetUrl = settings?.merchandiseOrderSheetUrl || 'https://script.google.com/macros/s/AKfycbysWxhVR34ix94LXQozFSvk6ufgbAQuyk_LVEuzHXaZufhSgFTaOI8Ax3w9JF9r3jQK/exec'
+const waNumber = settings?.collaborationWhatsApp || '6289613154154'
 
 // Helper: Format kategori
 function formatCategory(cat: string) {
@@ -66,126 +80,36 @@ function formatCategory(cat: string) {
 <Layout settings={settings}>
   <!-- CSS RESPONSIVE KHUSUS HOMEPAGE -->
   <style>
-    /* ===== EVENT POSTER: Compact & Centered di Desktop ===== */
-    .event-poster-home {
-      width: 100%;
-      max-width: 500px;
-      margin: 0 auto;
-      background: #F5F5F5;
-      overflow: hidden;
-      position: relative;
-      border-radius: 4px;
-    }
-    .event-poster-home img {
-      width: 100%;
-      height: auto;
-      display: block;
-      object-fit: contain;
-    }
+    .event-poster-home { width: 100%; max-width: 500px; margin: 0 auto; background: #F5F5F5; overflow: hidden; position: relative; border-radius: 4px; }
+    .event-poster-home img { width: 100%; height: auto; display: block; object-fit: contain; }
+    .event-card-home { width: 100%; max-width: 650px; margin: 0 auto; padding: 1.5rem; display: flex; flex-direction: column; align-items: center; text-align: center; }
+    .event-info { margin-top: 1.25rem; width: 100%; }
+    .marketplace-card-home { width: 100%; max-width: 550px; margin: 0 auto; }
+    .marketplace-card-home .card-image { width: 100%; max-width: 480px; height: 320px; margin: 0 auto; }
+    .marketplace-card-home .card-content { padding: 1.5rem; }
 
-    /* ===== EVENT CARD: Compact & Centered ===== */
-    .event-card-home {
-      width: 100%;
-      max-width: 650px;
-      margin: 0 auto;
-      padding: 1.5rem;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-    }
-    
-    .event-info {
-      margin-top: 1.25rem;
-      width: 100%;
-    }
+    /* Slider Merchandise */
+    .merch-slider-container { position: relative; width: 100%; aspect-ratio: 1/1; background: #F0F0F0; border-radius: 8px; overflow: hidden; border: 1px solid var(--border, #E5E5E5); margin-bottom: 1.5rem; }
+    .merch-slide { width: 100%; height: 100%; object-fit: contain; position: absolute; top: 0; left: 0; opacity: 0; transition: opacity 0.5s ease; }
+    .merch-slide.active { opacity: 1; }
+    .merch-slider-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.9); border: none; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); z-index: 10; transition: all 0.2s ease; }
+    .merch-slider-btn:hover { background: white; transform: translateY(-50%) scale(1.1); }
+    .merch-slider-btn.prev { left: 1rem; }
+    .merch-slider-btn.next { right: 1rem; }
+    .merch-dots { position: absolute; bottom: 1rem; left: 50%; transform: translateX(-50%); display: flex; gap: 0.5rem; z-index: 10; }
+    .merch-dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.5); cursor: pointer; transition: all 0.3s ease; border: 2px solid rgba(0,0,0,0.1); }
+    .merch-dot.active { background: var(--accent, #C84B8E); transform: scale(1.2); }
 
-    /* ===== MARKETPLACE CARD ===== */
-    .marketplace-card-home {
-      width: 100%;
-      max-width: 550px;
-      margin: 0 auto;
-    }
-    
-    .marketplace-card-home .card-image {
-      width: 100%;
-      max-width: 480px;
-      height: 320px;
-      margin: 0 auto;
-    }
-    
-    .marketplace-card-home .card-content {
-      padding: 1.5rem;
-    }
-
-    /* ===== MOBILE: Fix Events Section - FULL WIDTH & CENTERED ===== */
     @media (max-width: 768px) {
-      /* Section Events: hapus padding horizontal */
-      section:has(.event-grid-home) {
-        padding-left: 0 !important;
-        padding-right: 0 !important;
-      }
-      
-      /* Event poster full width di mobile */
-      .event-poster-home {
-        max-width: 100% !important;
-        width: 100% !important;
-        margin: 0 !important;
-        border-radius: 0 !important;
-      }
-      .event-poster-home img {
-        width: 100% !important;
-        height: auto !important;
-        max-height: none !important;
-      }
-      
-      /* Event card full width, NO margin */
-      .event-card-home {
-        max-width: 100% !important;
-        width: 100% !important;
-        margin: 0 !important;
-        padding: 1rem !important;
-        border-radius: 0 !important;
-        box-sizing: border-box !important;
-      }
-      
-      /* Grid events 1 kolom, full width */
-      .event-grid-home {
-        grid-template-columns: 1fr !important;
-        gap: 0 !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
-      }
-      
-      /* Marketplace */
-      .marketplace-card-home {
-        max-width: 100% !important;
-      }
-      .marketplace-card-home .card-image {
-        max-width: 100% !important;
-        height: 260px;
-      }
-      .marketplace-grid-home {
-        grid-template-columns: 1fr !important;
-        gap: 1rem !important;
-      }
-      
-      /* Fitting & Collab form */
-      .fitting-grid-2 {
-        grid-template-columns: 1fr !important;
-      }
-      .collab-grid-2 {
-        grid-template-columns: 1fr !important;
-      }
-      .collab-grid-2 > div {
-        padding: 0 !important;
-        margin-bottom: 0 !important;
-      }
-      .fitting-results-grid {
-        grid-template-columns: 1fr !important;
-      }
+      .mobile-no-padding { padding-left: 0 !important; padding-right: 0 !important; }
+      .event-poster-home, .event-card-home, .marketplace-card-home { max-width: 100% !important; width: 100% !important; margin: 0 !important; border-radius: 0 !important; }
+      .event-poster-home img { width: 100% !important; height: auto !important; max-height: none !important; }
+      .event-card-home { padding: 1rem !important; box-sizing: border-box !important; }
+      .marketplace-card-home .card-image { max-width: 100% !important; height: 260px; }
+      .event-grid-home, .marketplace-grid-home, .merch-grid-mobile { grid-template-columns: 1fr !important; gap: 1rem !important; width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
+      .fitting-grid-2, .collab-grid-2 { grid-template-columns: 1fr !important; }
+      .collab-grid-2 > div { padding: 0 !important; margin-bottom: 0 !important; }
+      .fitting-results-grid { grid-template-columns: 1fr !important; }
     }
   </style>
 
@@ -194,17 +118,130 @@ function formatCategory(cat: string) {
     <span style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); margin-bottom: 1rem; display: block;">
       {settings?.heroSection?.subtitle || '— KOMUNITAS SEPEDA GIANYAR'}
     </span>
-    
     <h1 style="font-family: 'Space Grotesk', sans-serif; font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 600; line-height: 1.1; letter-spacing: -0.03em; margin: 1rem 0 2rem;">
       {settings?.heroSection?.titleLine1 || 'Bersepeda,'}<br>
       <span style="font-style: italic; font-weight: 400; color: var(--accent, #C84B8E);">{settings?.heroSection?.titleLine2 || 'bercerita,'}</span><br>
       {settings?.heroSection?.titleLine3 || 'bersama.'}
     </h1>
-    
     <p style="font-size: 1.125rem; color: var(--text-muted, #666666); line-height: 1.6; max-width: 500px;">
       {settings?.heroSection?.description || 'AJGR.cc adalah ruang digital untuk komunitas sepeda vintage dan klasik di Gianyar, Bali.'}
     </p>
   </section>
+
+  <!-- ============================================ -->
+  <!-- PRE-ORDER MERCHANDISE SECTION -->
+  <!-- ============================================ -->
+  {featuredMerchandise && (
+    <section class="mobile-no-padding" style="padding: 6rem 0; border-top: 1px solid var(--border, #E5E5E5); background: linear-gradient(135deg, #FAFAFA 0%, #F5F5F5 100%);">
+      <div style="max-width: 1200px; margin: 0 auto; padding: 0 2rem;">
+        <div style="text-align: center; margin-bottom: 3rem;">
+          <span style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); display: block; margin-bottom: 0.5rem;">MERCHANDISE AJGR.CC</span>
+          <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: clamp(2rem, 4vw, 2.5rem); font-weight: 600; letter-spacing: -0.02em; color: var(--text, #111); margin-bottom: 0.5rem;">Pre-Order Merchandise AJGR</h2>
+          <p style="font-size: 1rem; color: var(--text-muted, #666); max-width: 600px; margin: 0 auto;">Dapatkan merchandise eksklusif AJGR.cc. Isi form di bawah untuk melakukan pre-order.</p>
+        </div>
+
+        <div class="merch-grid-mobile" style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: start;">
+          <!-- Left: Product Image & Info -->
+          <div>
+            <!-- SLIDER GAMBAR -->
+            {featuredMerchandise.images?.length > 0 && (
+              <div class="merch-slider-container">
+                {featuredMerchandise.images.map((img, index) => (
+                  <img 
+                    src={urlFor(img).width(800).url()} 
+                    alt={`${featuredMerchandise.title} - ${index + 1}`}
+                    class={`merch-slide ${index === 0 ? 'active' : ''}`}
+                  />
+                ))}
+                
+                {featuredMerchandise.images.length > 1 && (
+                  <>
+                    <button class="merch-slider-btn prev" onclick="changeMerchSlide(-1)">←</button>
+                    <button class="merch-slider-btn next" onclick="changeMerchSlide(1)">→</button>
+                    <div class="merch-dots">
+                      {featuredMerchandise.images.map((_, index) => (
+                        <span class={`merch-dot ${index === 0 ? 'active' : ''}`} onclick="goToMerchSlide(${index})"></span>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+            
+            <!-- Product Info -->
+            <div style="padding: 1.5rem; background: white; border: 1px solid var(--border, #E5E5E5); border-radius: 8px;">
+              <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text, #111);">{featuredMerchandise.title}</h3>
+              {featuredMerchandise.description && (<p style="font-size: 0.95rem; color: var(--text-muted, #666); line-height: 1.6; margin-bottom: 1rem;">{featuredMerchandise.description}</p>)}
+              <div style="display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 1rem;">
+                <span style="font-size: 0.75rem; color: var(--text-muted, #666); text-transform: uppercase; letter-spacing: 0.1em;">Harga:</span>
+                <span style="font-size: 1.75rem; font-weight: 700; color: var(--accent, #C84B8E);">Rp {featuredMerchandise.price?.toLocaleString('id-ID')}</span>
+              </div>
+              {featuredMerchandise.availableSizes?.length > 0 && (
+                <div style="margin-bottom: 1rem;">
+                  <p style="font-size: 0.75rem; color: var(--text-muted, #666); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem;">Ukuran Tersedia:</p>
+                  <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                    {featuredMerchandise.availableSizes.map((size) => (<span style="padding: 0.4rem 0.8rem; background: #F5F5F5; border: 1px solid var(--border, #E5E5E5); border-radius: 4px; font-size: 0.85rem; font-weight: 500;">{size}</span>))}
+                  </div>
+                </div>
+              )}
+              {featuredMerchandise.paymentMethods?.length > 0 && (
+                <div>
+                  <p style="font-size: 0.75rem; color: var(--text-muted, #666); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem;">Metode Pembayaran:</p>
+                  <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                    {featuredMerchandise.paymentMethods.map((method) => (<span style="padding: 0.4rem 0.8rem; background: #F5F5F5; border: 1px solid var(--border, #E5E5E5); border-radius: 4px; font-size: 0.85rem; font-weight: 500;">{method}</span>))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <!-- Right: Order Form -->
+          <div>
+            <form id="merchandiseForm" data-sheet-url={sheetUrl} data-product={featuredMerchandise.title} data-price={featuredMerchandise.price} data-wa={waNumber} style="background: white; padding: 2rem; border: 1px solid var(--border, #E5E5E5); border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.03);">
+              <h4 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text, #111);">Form Pre-Order</h4>
+              <p style="font-size: 0.85rem; color: var(--text-muted, #666); margin-bottom: 1.5rem;">Isi data di bawah untuk melakukan pemesanan.</p>
+
+              <div style="margin-bottom: 1rem;">
+                <label style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); margin-bottom: 0.5rem;">Nama Lengkap *</label>
+                <input type="text" id="merch-name" required style="width: 100%; padding: 0.85rem 1rem; border: 1px solid var(--border, #E5E5E5); border-radius: 4px; font-family: 'Inter', sans-serif; font-size: 0.9rem; box-sizing: border-box;" />
+              </div>
+              <div style="margin-bottom: 1rem;">
+                <label style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); margin-bottom: 0.5rem;">No. WhatsApp *</label>
+                <input type="tel" id="merch-phone" required placeholder="Contoh: 08123456789" style="width: 100%; padding: 0.85rem 1rem; border: 1px solid var(--border, #E5E5E5); border-radius: 4px; font-family: 'Inter', sans-serif; font-size: 0.9rem; box-sizing: border-box;" />
+              </div>
+              {featuredMerchandise.availableSizes?.length > 0 && (
+                <div style="margin-bottom: 1rem;">
+                  <label style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); margin-bottom: 0.5rem;">Ukuran Baju *</label>
+                  <select id="merch-size" required style="width: 100%; padding: 0.85rem 1rem; border: 1px solid var(--border, #E5E5E5); border-radius: 4px; font-family: 'Inter', sans-serif; font-size: 0.9rem; background: white; box-sizing: border-box;">
+                    <option value="" disabled selected>Pilih ukuran...</option>
+                    {featuredMerchandise.availableSizes.map((size) => (<option value={size}>{size}</option>))}
+                  </select>
+                </div>
+              )}
+              <div style="margin-bottom: 1rem;">
+                <label style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); margin-bottom: 0.5rem;">Alamat Pengiriman *</label>
+                <textarea id="merch-address" rows="3" required placeholder="Alamat lengkap untuk pengiriman..." style="width: 100%; padding: 0.85rem 1rem; border: 1px solid var(--border, #E5E5E5); border-radius: 4px; font-family: 'Inter', sans-serif; font-size: 0.9rem; resize: vertical; box-sizing: border-box;"></textarea>
+              </div>
+              {featuredMerchandise.paymentMethods?.length > 0 && (
+                <div style="margin-bottom: 1.5rem;">
+                  <label style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); margin-bottom: 0.5rem;">Metode Pembayaran *</label>
+                  <select id="merch-payment" required style="width: 100%; padding: 0.85rem 1rem; border: 1px solid var(--border, #E5E5E5); border-radius: 4px; font-family: 'Inter', sans-serif; font-size: 0.9rem; background: white; box-sizing: border-box;">
+                    <option value="" disabled selected>Pilih metode pembayaran...</option>
+                    {featuredMerchandise.paymentMethods.map((method) => (<option value={method}>{method}</option>))}
+                  </select>
+                </div>
+              )}
+              <button type="submit" id="merchSubmitBtn" style="width: 100%; padding: 1rem; background: var(--accent, #C84B8E); color: white; font-family: 'Space Grotesk', sans-serif; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; border: none; border-radius: 4px; cursor: pointer; transition: all 0.2s ease;" onmouseover="this.style.backgroundColor='#A03D72'" onmouseout="this.style.backgroundColor='var(--accent, #C84B8E)'">🛍️ Kirim Pesanan Pre-Order</button>
+              <p style="text-align: center; margin-top: 0.75rem; font-size: 0.75rem; color: #999;">Pesanan akan dikirim via WhatsApp & tersimpan di sistem kami.</p>
+              <div id="merch-success" style="display: none; margin-top: 1rem; padding: 1rem; background: rgba(34, 197, 94, 0.1); border-left: 3px solid #22C55E; border-radius: 4px;">
+                <p style="font-size: 0.9rem; color: #166534; font-weight: 500; margin: 0;">✅ Pesanan berhasil dikirim! Tim kami akan menghubungi Anda via WhatsApp.</p>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
+  )}
 
   <!-- LATEST JOURNAL SECTION -->
   {showJournal && (
@@ -213,32 +250,23 @@ function formatCategory(cat: string) {
         <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.5rem; font-weight: 600;">{journalTitle}</h2>
         <a href="/journal" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text, #111); text-decoration: none; border-bottom: 1px solid var(--text, #111);">View All</a>
       </div>
-
       {recentPosts.length > 0 ? (
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem;">
           {recentPosts.map((post: any) => (
-            <a href={`/journal/${post.slug.current}`} style="text-decoration: none; color: inherit; display: block; border: 1px solid var(--border, #E5E5E5); padding: 1.5rem; transition: background-color 0.3s ease;"
-              onmouseover="this.style.backgroundColor='#F8F8F8'" 
-              onmouseout="this.style.backgroundColor='transparent'">
+            <a href={`/journal/${post.slug.current}`} style="text-decoration: none; color: inherit; display: block; border: 1px solid var(--border, #E5E5E5); padding: 1.5rem; transition: background-color 0.3s ease;" onmouseover="this.style.backgroundColor='#F8F8F8'" onmouseout="this.style.backgroundColor='transparent'">
               {post.mainImage ? (
                 <div style="aspect-ratio: 16/10; background: #F5F5F5; margin-bottom: 1rem; overflow: hidden;">
                   <img src={urlFor(post.mainImage).width(600).url()} alt={post.title} style="width: 100%; height: 100%; object-fit: cover;" />
                 </div>
               ) : (
                 <div style="aspect-ratio: 16/10; background: linear-gradient(135deg, #C84B8E 0%, #E8C547 100%); margin-bottom: 1rem; display: flex; align-items: center; justify-content: center;">
-                  <span style="font-size: 3rem; color: white;"></span>
+                  <span style="font-size: 3rem; color: white;">📖</span>
                 </div>
               )}
-              <span style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent, #C84B8E); display: block; margin-bottom: 0.5rem; font-weight: 600;">
-                {post.category}
-              </span>
+              <span style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent, #C84B8E); display: block; margin-bottom: 0.5rem; font-weight: 600;">{post.category}</span>
               <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; line-height: 1.3;">{post.title}</h3>
-              <p style="font-size: 0.85rem; color: #666; line-height: 1.6; margin-bottom: 0.75rem;">
-                {post.body?.[0]?.children?.map((c: any) => c.text).join('').substring(0, 60)}...
-              </p>
-              <p style="font-size: 0.75rem; color: #999;">
-                {new Date(post.publishedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
-              </p>
+              <p style="font-size: 0.85rem; color: #666; line-height: 1.6; margin-bottom: 0.75rem;">{post.body?.[0]?.children?.map((c: any) => c.text).join('').substring(0, 60)}...</p>
+              <p style="font-size: 0.75rem; color: #999;">{new Date(post.publishedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
             </a>
           ))}
         </div>
@@ -257,29 +285,19 @@ function formatCategory(cat: string) {
         <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.5rem; font-weight: 600;">{archiveTitle}</h2>
         <a href="/archive" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text, #111); text-decoration: none; border-bottom: 1px solid var(--text, #111);">View All</a>
       </div>
-
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
         {recentBikes.map((bike: any) => (
-          <a href={`/archive/${bike.slug.current}`} 
-            style="text-decoration: none; color: inherit; display: block; border: 1px solid var(--border, #E5E5E5); padding: 1.5rem; transition: all 0.3s ease; cursor: pointer;"
-            onmouseover="this.style.backgroundColor='#F8F8F8'; this.style.transform='translateY(-4px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" 
-            onmouseout="this.style.backgroundColor='transparent'; this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-            
+          <a href={`/archive/${bike.slug.current}`} style="text-decoration: none; color: inherit; display: block; border: 1px solid var(--border, #E5E5E5); padding: 1.5rem; transition: all 0.3s ease; cursor: pointer;" onmouseover="this.style.backgroundColor='#F8F8F8'; this.style.transform='translateY(-4px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" onmouseout="this.style.backgroundColor='transparent'; this.style.transform='translateY(0)'; this.style.boxShadow='none'">
             <div style="aspect-ratio: 16/10; background: #F5F5F5; margin-bottom: 1rem; overflow: hidden; border-radius: 4px;">
               {bike.mainImage ? (
                 <img src={urlFor(bike.mainImage).width(600).url()} alt={bike.title} style="width: 100%; height: 100%; object-fit: cover;" />
               ) : (
-                <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 3rem;"></div>
+                <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 3rem;">🚲</div>
               )}
             </div>
-            
-            <span style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; display: block; margin-bottom: 0.5rem;">
-              {bike.year} — {bike.country}
-            </span>
-            
+            <span style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; display: block; margin-bottom: 0.5rem;">{bike.year} — {bike.country}</span>
             <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; line-height: 1.3;">{bike.title}</h3>
             <p style="font-size: 0.85rem; color: #666;">{bike.type}</p>
-            
             <div style="margin-top: 1rem; display: flex; align-items: center; gap: 0.5rem;">
               <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; color: var(--text, #111);">Detail</span>
               <span style="font-size: 1rem;">→</span>
@@ -297,34 +315,20 @@ function formatCategory(cat: string) {
         <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.5rem; font-weight: 600;">{rolodexTitle}</h2>
         <a href="/rolodex" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text, #111); text-decoration: none; border-bottom: 1px solid var(--text, #111);">View All</a>
       </div>
-
       {recentSellers.length > 0 ? (
        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem;">
           {recentSellers.map((seller: any) => (
-            <article style="border: 1px solid var(--border, #E5E5E5); padding: 1.5rem; transition: background-color 0.3s ease;"
-                    onmouseover="this.style.backgroundColor='#F8F8F8'" 
-                    onmouseout="this.style.backgroundColor='transparent'">
+            <article style="border: 1px solid var(--border, #E5E5E5); padding: 1.5rem; transition: background-color 0.3s ease;" onmouseover="this.style.backgroundColor='#F8F8F8'" onmouseout="this.style.backgroundColor='transparent'">
               {seller.logo && (
                 <div style="width: 60px; height: 60px; background: #F5F5F5; border-radius: 4px; overflow: hidden; margin-bottom: 1rem; display: flex; align-items: center; justify-content: center;">
                   <img src={urlFor(seller.logo).width(120).url()} alt={seller.name} style="width: 100%; height: 100%; object-fit: contain;" />
                 </div>
               )}
-              <span style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent, #C84B8E); display: block; margin-bottom: 0.5rem; font-weight: 600;">
-                {seller.category || 'COMMUNITY'}
-              </span>
+              <span style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent, #C84B8E); display: block; margin-bottom: 0.5rem; font-weight: 600;">{seller.category || 'COMMUNITY'}</span>
               <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem;">{seller.name}</h3>
-              {seller.address && (
-                <p style="font-size: 0.85rem; color: #666; line-height: 1.6; margin-bottom: 1rem;">
-                  {seller.address}
-                </p>
-              )}
+              {seller.address && (<p style="font-size: 0.85rem; color: #666; line-height: 1.6; margin-bottom: 1rem;">{seller.address}</p>)}
               {seller.whatsapp && (
-                <a href={`https://wa.me/${seller.whatsapp}`} target="_blank" rel="noopener noreferrer" 
-                  style="display: inline-block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text, #111); text-decoration: none; border: 1px solid var(--text, #111); padding: 0.5rem 1rem; transition: all 0.2s ease;"
-                  onmouseover="this.style.backgroundColor='var(--text, #111)'; this.style.color='#FAFAFA'"
-                  onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--text, #111)'">
-                  Contact →
-                </a>
+                <a href={`https://wa.me/${seller.whatsapp}`} target="_blank" rel="noopener noreferrer" style="display: inline-block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text, #111); text-decoration: none; border: 1px solid var(--text, #111); padding: 0.5rem 1rem; transition: all 0.2s ease;" onmouseover="this.style.backgroundColor='var(--text, #111)'; this.style.color='#FAFAFA'" onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--text, #111)'">Contact →</a>
               )}
             </article>
           ))}
@@ -342,18 +346,11 @@ function formatCategory(cat: string) {
     <section style="padding: 6rem 0; border-top: 1px solid var(--border, #E5E5E5);">
       <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 3rem; border-bottom: 1px solid var(--border, #E5E5E5); padding-bottom: 1rem;">
         <div>
-          <span style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); display: block; margin-bottom: 0.5rem;">
-            {marketplaceLabel}
-          </span>
-          <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: 2rem; font-weight: 600; letter-spacing: -0.02em; color: var(--text, #111);">
-            {marketplaceTitle}
-          </h2>
+          <span style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); display: block; margin-bottom: 0.5rem;">{marketplaceLabel}</span>
+          <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: 2rem; font-weight: 600; letter-spacing: -0.02em; color: var(--text, #111);">{marketplaceTitle}</h2>
         </div>
-        <a href="/marketplace" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text, #111); text-decoration: none; border-bottom: 1px solid var(--text, #111);">
-          View All →
-        </a>
+        <a href="/marketplace" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text, #111); text-decoration: none; border-bottom: 1px solid var(--text, #111);">View All →</a>
       </div>
-
       {featuredMarketplace.length > 0 ? (
         <div class="marketplace-grid-home" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 2.5rem;">
           {featuredMarketplace.map((item: any) => {
@@ -361,25 +358,19 @@ function formatCategory(cat: string) {
             const statusLabels: any = { available: 'Tersedia', reserved: 'Reserved', sold: 'Terjual' }
             return (
               <a href={`/marketplace/${item.slug.current}`} class="marketplace-card-home" style="text-decoration: none; color: inherit; display: block; border: 1px solid var(--border, #E5E5E5); transition: background-color 0.3s ease; position: relative; overflow: hidden;" onmouseover="this.style.backgroundColor='#F8F8F8'" onmouseout="this.style.backgroundColor='transparent'">
-                <div style="position: absolute; top: 1rem; right: 1rem; background: {statusColors[item.status] || '#22C55E'}; color: white; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; padding: 0.2rem 0.6rem; border-radius: 2px; z-index: 10;">
-                  {statusLabels[item.status] || 'Tersedia'}
-                </div>
+                <div style="position: absolute; top: 1rem; right: 1rem; background: {statusColors[item.status] || '#22C55E'}; color: white; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; padding: 0.2rem 0.6rem; border-radius: 2px; z-index: 10;">{statusLabels[item.status] || 'Tersedia'}</div>
                 <div class="card-image" style="aspect-ratio: 16/10; background: #F5F5F5; overflow: hidden;">
                   {item.images?.[0] ? (
                     <img src={urlFor(item.images[0]).width(800).url()} alt={item.title} style="width: 100%; height: 100%; object-fit: cover;" />
                   ) : (
-                    <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #C84B8E 0%, #E8C547 100%);">
-                      <span style="font-size: 3rem; color: white;"></span>
-                    </div>
+                    <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #C84B8E 0%, #E8C547 100%);"><span style="font-size: 3rem; color: white;">🔧</span></div>
                   )}
                 </div>
                 <div class="card-content" style="padding: 1.5rem;">
-                  <span style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666);">
-                    {formatCategory(item.category)} {item.brand ? `· ${item.brand}` : ''}
-                  </span>
+                  <span style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666);">{formatCategory(item.category)} {item.brand ? `· ${item.brand}` : ''}</span>
                   <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.35rem; font-weight: 600; margin: 0.5rem 0; line-height: 1.3;">{item.title}</h3>
                   <p style="font-size: 1.35rem; font-weight: 700; color: var(--text, #111); margin-bottom: 0.5rem;">Rp {item.price?.toLocaleString('id-ID')}</p>
-                  <p style="font-size: 0.9rem; color: var(--text-muted, #666);"> {item.sellerLocation || '-'}</p>
+                  <p style="font-size: 0.9rem; color: var(--text-muted, #666);">📍 {item.sellerLocation || '-'}</p>
                 </div>
               </a>
             )
@@ -398,15 +389,10 @@ function formatCategory(cat: string) {
     <section style="padding: 6rem 0; border-top: 1px solid var(--border, #E5E5E5);">
       <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 3rem; border-bottom: 1px solid var(--border, #E5E5E5); padding-bottom: 1rem;">
         <div>
-          <span style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); display: block; margin-bottom: 0.5rem;">
-            {fittingLabel}
-          </span>
-          <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: 2rem; font-weight: 600; letter-spacing: -0.02em; color: var(--text, #111);">
-            {fittingTitle}
-          </h2>
+          <span style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); display: block; margin-bottom: 0.5rem;">{fittingLabel}</span>
+          <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: 2rem; font-weight: 600; letter-spacing: -0.02em; color: var(--text, #111);">{fittingTitle}</h2>
         </div>
       </div>
-
       <div style="max-width: 800px; margin: 0 auto; padding: 0 1rem;">
         <div id="fitting-form" class="fitting-container" style="border: 1px solid var(--border, #E5E5E5); padding: 2.5rem; border-radius: 4px; background: #FAFAFA;">
           <div style="display: grid; gap: 1.5rem;">
@@ -417,7 +403,6 @@ function formatCategory(cat: string) {
                 <option value="mtb">MTB / Gravel / City Bike</option>
               </select>
             </div>
-
             <div class="fitting-grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
               <div>
                 <label style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); margin-bottom: 0.5rem;">Tinggi Badan (cm)</label>
@@ -429,26 +414,19 @@ function formatCategory(cat: string) {
                 <p style="font-size: 0.7rem; color: #999; margin-top: 0.25rem;">* Jarak dari selangkangan ke lantai</p>
               </div>
             </div>
-
-            <button onclick="calculateFitting()" class="fitting-button" style="width: 100%; padding: 1rem; background: var(--text, #111); color: white; font-family: 'Space Grotesk', sans-serif; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; border: none; cursor: pointer; transition: background 0.2s; box-sizing: border-box;" onmouseover="this.style.backgroundColor='var(--accent, #C84B8E)'" onmouseout="this.style.backgroundColor='var(--text, #111)'">
-              Hitung Rekomendasi Fitting →
-            </button>
+            <button onclick="calculateFitting()" class="fitting-button" style="width: 100%; padding: 1rem; background: var(--text, #111); color: white; font-family: 'Space Grotesk', sans-serif; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; border: none; cursor: pointer; transition: background 0.2s; box-sizing: border-box;" onmouseover="this.style.backgroundColor='var(--accent, #C84B8E)'" onmouseout="this.style.backgroundColor='var(--text, #111)'">Hitung Rekomendasi Fitting →</button>
           </div>
         </div>
-
         <div id="fitting-result" style="display: none; margin-top: 2rem;">
           <div style="border: 1px solid var(--accent, #C84B8E); padding: 2.5rem; border-radius: 4px; background: white; position: relative;">
             <button onclick="resetForm()" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 0.75rem; color: var(--text-muted, #666); cursor: pointer; text-decoration: underline;">Hitung Ulang</button>
-            
             <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--accent, #C84B8E);">Hasil Rekomendasi Anda</h3>
             <p id="res-summary" style="font-size: 0.9rem; color: var(--text-muted, #666); margin-bottom: 2rem;"></p>
-            
             <div style="background: linear-gradient(135deg, #C84B8E 0%, #E8C547 100%); padding: 2rem; border-radius: 4px; margin-bottom: 2rem; color: white;">
               <p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 0.5rem; opacity: 0.9;">Rekomendasi Ukuran Frame</p>
               <p id="res-frame-size" style="font-family: 'Space Grotesk', sans-serif; font-size: 2.5rem; font-weight: 700; margin-bottom: 0.25rem;">-</p>
               <p id="res-frame-note" style="font-size: 0.85rem; opacity: 0.95;"></p>
             </div>
-            
             <div class="fitting-results-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
               <div style="padding: 1.5rem; background: #FAFAFA; border: 1px solid var(--border, #E5E5E5); border-radius: 4px;">
                 <p style="font-size: 0.7rem; text-transform: uppercase; color: #999; margin-bottom: 0.5rem; letter-spacing: 0.05em;">Tinggi Saddle (dari BB)</p>
@@ -463,13 +441,10 @@ function formatCategory(cat: string) {
                 <p id="res-drop" style="font-family: 'Space Grotesk', sans-serif; font-size: 1.1rem; font-weight: 600; color: var(--text, #111);">- cm</p>
               </div>
             </div>
-
             <div style="border-top: 1px solid var(--border, #E5E5E5); padding-top: 1.5rem;">
               <h4 style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text, #111); margin-bottom: 0.75rem;">Catatan Ahli:</h4>
               <p id="res-advice" style="font-size: 0.9rem; color: var(--text-muted, #666); line-height: 1.6; font-style: italic;"></p>
-              <p style="font-size: 0.75rem; color: #999; margin-top: 1rem; border-top: 1px dashed var(--border, #E5E5E5); padding-top: 1rem;">
-                Perhitungan ini adalah estimasi awal. Disarankan fitting langsung dengan profesional.
-              </p>
+              <p style="font-size: 0.75rem; color: #999; margin-top: 1rem; border-top: 1px dashed var(--border, #E5E5E5); padding-top: 1rem;">Perhitungan ini adalah estimasi awal. Disarankan fitting langsung dengan profesional.</p>
             </div>
           </div>
         </div>
@@ -479,69 +454,33 @@ function formatCategory(cat: string) {
 
   <!-- UPCOMING EVENTS SECTION -->
   {showEvents && (
-    <section style="padding: 6rem 0; border-top: 1px solid var(--border, #E5E5E5);">
+    <section class="mobile-no-padding" style="padding: 6rem 0; border-top: 1px solid var(--border, #E5E5E5);">
       <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 3rem; border-bottom: 1px solid var(--border, #E5E5E5); padding-bottom: 1rem; padding: 0 1rem;">
         <div>
-          <span style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); display: block; margin-bottom: 0.5rem;">
-            {eventsLabel}
-          </span>
-          <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: 2rem; font-weight: 600; letter-spacing: -0.02em; color: var(--text, #111);">
-            {eventsTitle}
-          </h2>
+          <span style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); display: block; margin-bottom: 0.5rem;">{eventsLabel}</span>
+          <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: 2rem; font-weight: 600; letter-spacing: -0.02em; color: var(--text, #111);">{eventsTitle}</h2>
         </div>
-        <a href="/events" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text, #111); text-decoration: none; border-bottom: 1px solid var(--text, #111);">
-          View All →
-        </a>
+        <a href="/events" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text, #111); text-decoration: none; border-bottom: 1px solid var(--text, #111);">View All →</a>
       </div>
-
       {featuredEvents.length > 0 ? (
         <div class="event-grid-home">
           {featuredEvents.map((event: any) => {
-            const statusColors: any = {
-              'coming-soon': '#E8C547',
-              'open': '#22C55E',
-              'full': '#EF4444',
-              'finished': '#6B7280',
-              'cancelled': '#6B7280'
-            }
-            const statusLabels: any = {
-              'coming-soon': 'COMING SOON',
-              'open': 'OPEN REGISTRATION',
-              'full': 'FULL',
-              'finished': 'SELESAI',
-              'cancelled': 'DIBATALKAN'
-            }
-            
+            const statusColors: any = { 'coming-soon': '#E8C547', 'open': '#22C55E', 'full': '#EF4444', 'finished': '#6B7280', 'cancelled': '#6B7280' }
+            const statusLabels: any = { 'coming-soon': 'COMING SOON', 'open': 'OPEN REGISTRATION', 'full': 'FULL', 'finished': 'SELESAI', 'cancelled': 'DIBATALKAN' }
             return (
-              <a href={`/events/${event.slug.current}`} class="event-card-home" style="text-decoration: none; color: inherit; border: 1px solid var(--border, #E5E5E5); transition: all 0.3s ease; overflow: hidden; background: white; display: block;"
-                 onmouseover="this.style.borderColor='var(--accent, #C84B8E)'; this.style.transform='translateY(-4px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" 
-                 onmouseout="this.style.borderColor='var(--border, #E5E5E5)'; this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-                
-                <!-- POSTER -->
+              <a href={`/events/${event.slug.current}`} class="event-card-home" style="text-decoration: none; color: inherit; border: 1px solid var(--border, #E5E5E5); transition: all 0.3s ease; overflow: hidden; background: white; display: block;" onmouseover="this.style.borderColor='var(--accent, #C84B8E)'; this.style.transform='translateY(-4px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" onmouseout="this.style.borderColor='var(--border, #E5E5E5)'; this.style.transform='translateY(0)'; this.style.boxShadow='none'">
                 <div class="event-poster-home">
                   {event.poster ? (
                     <img src={urlFor(event.poster).width(800).url()} alt={event.title} />
                   ) : (
-                    <div style="width: 100%; height: 240px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #C84B8E 0%, #E8C547 100%);">
-                      <span style="font-size: 3rem; color: white;"></span>
-                    </div>
+                    <div style="width: 100%; height: 240px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #C84B8E 0%, #E8C547 100%);"><span style="font-size: 3rem; color: white;">📅</span></div>
                   )}
                 </div>
-
-                <!-- INFO EVENT -->
                 <div class="event-info">
-                  <span style="display: inline-block; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.15em; color: {statusColors[event.status] || '#E8C547'}; margin-bottom: 0.5rem;">
-                    {statusLabels[event.status] || 'COMING SOON'}
-                  </span>
-                  <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.25rem; font-weight: 600; letter-spacing: -0.02em; color: var(--text, #111); margin-bottom: 0.5rem; line-height: 1.3;">
-                    {event.title}
-                  </h3>
-                  <p style="font-size: 0.85rem; color: var(--text-muted, #666); margin-bottom: 1rem;">
-                    {new Date(event.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })} · {event.location}
-                  </p>
-                  <span style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent, #C84B8E); display: inline-flex; align-items: center; gap: 0.5rem; justify-content: center;">
-                    Lihat Detail →
-                  </span>
+                  <span style="display: inline-block; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.15em; color: {statusColors[event.status] || '#E8C547'}; margin-bottom: 0.5rem;">{statusLabels[event.status] || 'COMING SOON'}</span>
+                  <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.25rem; font-weight: 600; letter-spacing: -0.02em; color: var(--text, #111); margin-bottom: 0.5rem; line-height: 1.3;">{event.title}</h3>
+                  <p style="font-size: 0.85rem; color: var(--text-muted, #666); margin-bottom: 1rem;">{new Date(event.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })} · {event.location}</p>
+                  <span style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent, #C84B8E); display: inline-flex; align-items: center; gap: 0.5rem; justify-content: center;">Lihat Detail →</span>
                 </div>
               </a>
             )
@@ -549,12 +488,8 @@ function formatCategory(cat: string) {
         </div>
       ) : (
         <div style="text-align: center; padding: 4rem 2rem; border: 1px solid var(--border, #E5E5E5);">
-          <p style="font-family: 'Space Grotesk', sans-serif; font-size: 1.25rem; font-weight: 600; color: var(--text, #111); margin-bottom: 0.5rem;">
-            Belum ada event terdekat
-          </p>
-          <p style="color: var(--text-muted, #666); font-size: 0.9rem;">
-            <a href="/events" style="color: var(--accent, #C84B8E); text-decoration: none;">Lihat semua event →</a>
-          </p>
+          <p style="font-family: 'Space Grotesk', sans-serif; font-size: 1.25rem; font-weight: 600; color: var(--text, #111); margin-bottom: 0.5rem;">Belum ada event terdekat</p>
+          <p style="color: var(--text-muted, #666); font-size: 0.9rem;"><a href="/events" style="color: var(--accent, #C84B8E); text-decoration: none;">Lihat semua event →</a></p>
         </div>
       )}
     </section>
@@ -564,19 +499,11 @@ function formatCategory(cat: string) {
   <section style="padding: 6rem 0; border-top: 1px solid var(--border, #E5E5E5); background: #FAFAFA;">
     <div style="max-width: 800px; margin: 0 auto; padding: 0 1.5rem;">
       <div style="text-align: center; margin-bottom: 3rem;">
-        <span style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); display: block; margin-bottom: 0.5rem;">
-          PARTNERSHIP & COLLABORATION
-        </span>
-        <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: clamp(2rem, 4vw, 2.5rem); font-weight: 600; letter-spacing: -0.02em; color: var(--text, #111);">
-          Form Kerja Sama dengan AJGR.cc
-        </h2>
-        <p style="margin-top: 1rem; font-size: 1rem; color: var(--text-muted, #666); line-height: 1.6;">
-          Punya ide kolaborasi, ingin menjual sepeda vintage, atau request artikel? Isi form di bawah ini dan pesan Anda akan langsung terkirim ke WhatsApp tim kami.
-        </p>
+        <span style="font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent, #C84B8E); display: block; margin-bottom: 0.5rem;">PARTNERSHIP & COLLABORATION</span>
+        <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: clamp(2rem, 4vw, 2.5rem); font-weight: 600; letter-spacing: -0.02em; color: var(--text, #111);">Form Kerja Sama dengan AJGR.cc</h2>
+        <p style="margin-top: 1rem; font-size: 1rem; color: var(--text-muted, #666); line-height: 1.6;">Punya ide kolaborasi, ingin menjual sepeda vintage, atau request artikel? Isi form di bawah ini dan pesan Anda akan langsung terkirim ke WhatsApp tim kami.</p>
       </div>
-
-      <form id="collabForm" data-whatsapp="6282147883637" style="background: white; padding: 2.5rem; border: 1px solid var(--border, #E5E5E5); border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.03);">
-        
+      <form id="collabForm" data-whatsapp={waNumber} style="background: white; padding: 2.5rem; border: 1px solid var(--border, #E5E5E5); border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.03);">
         <div class="collab-grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
           <div>
             <label style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); margin-bottom: 0.5rem;">Nama Lengkap *</label>
@@ -587,7 +514,6 @@ function formatCategory(cat: string) {
             <input type="email" id="collabEmail" required style="width: 100%; padding: 0.85rem 1rem; border: 1px solid var(--border, #E5E5E5); border-radius: 4px; font-family: 'Inter', sans-serif; font-size: 0.9rem; box-sizing: border-box;" />
           </div>
         </div>
-
         <div class="collab-grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
           <div>
             <label style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); margin-bottom: 0.5rem;">No. WhatsApp Anda</label>
@@ -604,138 +530,215 @@ function formatCategory(cat: string) {
             </select>
           </div>
         </div>
-
         <div style="margin-bottom: 1.5rem;">
           <label style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted, #666); margin-bottom: 0.5rem;">Pesan / Detail Permintaan *</label>
           <textarea id="collabMessage" rows="5" required placeholder="Jelaskan detail permintaan Anda di sini..." style="width: 100%; padding: 0.85rem 1rem; border: 1px solid var(--border, #E5E5E5); border-radius: 4px; font-family: 'Inter', sans-serif; font-size: 0.9rem; resize: vertical; box-sizing: border-box;"></textarea>
         </div>
-
         <div>
           <button type="submit" id="submitBtn" style="width: 100%; padding: 1rem; background: #25D366; color: white; font-family: 'Space Grotesk', sans-serif; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-            <span style="font-size: 1.2rem;">💬</span>
-            <span>Kirim via WhatsApp</span>
+            <span style="font-size: 1.2rem;"></span><span>Kirim via WhatsApp</span>
           </button>
-          <p style="text-align: center; margin-top: 0.75rem; font-size: 0.75rem; color: #999;">
-            Dengan mengklik tombol ini, Anda akan diarahkan ke WhatsApp dengan pesan yang sudah terformat otomatis.
-          </p>
+          <p style="text-align: center; margin-top: 0.75rem; font-size: 0.75rem; color: #999;">Dengan mengklik tombol ini, Anda akan diarahkan ke WhatsApp dengan pesan yang sudah terformat otomatis.</p>
         </div>
       </form>
     </div>
   </section>
 
-  <!-- SCRIPT HANDLE FORM → WHATSAPP -->
+  <!-- SCRIPTS LENGKAP -->
   <script is:inline>
-    const form = document.getElementById('collabForm');
-    const submitBtn = document.getElementById('submitBtn');
-    const recipientWhatsApp = form.getAttribute('data-whatsapp');
+    // ==========================================
+    // 1. SLIDER MERCHANDISE
+    // ==========================================
+    let currentMerchSlide = 0;
+    const merchSlides = document.querySelectorAll('.merch-slide');
+    const merchDots = document.querySelectorAll('.merch-dot');
+    
+    function changeMerchSlide(direction) {
+      if (merchSlides.length === 0) return;
+      if (merchSlides[currentMerchSlide]) merchSlides[currentMerchSlide].classList.remove('active');
+      if (merchDots[currentMerchSlide]) merchDots[currentMerchSlide].classList.remove('active');
+      
+      currentMerchSlide = (currentMerchSlide + direction + merchSlides.length) % merchSlides.length;
+      
+      if (merchSlides[currentMerchSlide]) merchSlides[currentMerchSlide].classList.add('active');
+      if (merchDots[currentMerchSlide]) merchDots[currentMerchSlide].classList.add('active');
+    }
+    
+    function goToMerchSlide(index) {
+      if (merchSlides.length === 0) return;
+      if (merchSlides[currentMerchSlide]) merchSlides[currentMerchSlide].classList.remove('active');
+      if (merchDots[currentMerchSlide]) merchDots[currentMerchSlide].classList.remove('active');
+      
+      currentMerchSlide = index;
+      
+      if (merchSlides[currentMerchSlide]) merchSlides[currentMerchSlide].classList.add('active');
+      if (merchDots[currentMerchSlide]) merchDots[currentMerchSlide].classList.add('active');
+    }
+    
+    // Auto-slide setiap 5 detik
+    if (merchSlides.length > 1) {
+      setInterval(() => changeMerchSlide(1), 5000);
+    }
 
-    form.addEventListener('submit', function(e) {
-      e.preventDefault();
+    // ==========================================
+    // 2. MERCHANDISE ORDER FORM HANDLER
+    // ==========================================
+    const merchForm = document.getElementById('merchandiseForm');
+    if (merchForm) {
+      merchForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const nama = document.getElementById('merch-name').value.trim();
+        const phone = document.getElementById('merch-phone').value.trim();
+        const size = document.getElementById('merch-size').value;
+        const address = document.getElementById('merch-address').value.trim();
+        const payment = document.getElementById('merch-payment').value;
+        
+        const productName = merchForm.getAttribute('data-product');
+        const productPrice = merchForm.getAttribute('data-price');
+        const sheetUrl = merchForm.getAttribute('data-sheet-url');
+        const waNum = merchForm.getAttribute('data-wa') || '6282147883637';
 
-      const name = document.getElementById('collabName').value.trim();
-      const email = document.getElementById('collabEmail').value.trim();
-      const phone = document.getElementById('collabPhone').value.trim();
-      const collabType = document.getElementById('collabType').value;
-      const message = document.getElementById('collabMessage').value.trim();
+        if (!nama || !phone || !size || !address || !payment) {
+          alert('Mohon lengkapi semua field yang wajib diisi (*).');
+          return;
+        }
 
-      if (!name || !email || !collabType || !message) {
-        alert('Mohon lengkapi semua field yang wajib diisi (*).');
-        return;
-      }
+        const submitBtn = document.getElementById('merchSubmitBtn');
+        const successMsg = document.getElementById('merch-success');
+        
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '⏳ Memproses...';
 
-      const waMessage = 
-`Halo AJGR.cc! 
+        const orderData = { 
+          nama, 
+          noHp: phone, 
+          ukuran: size, 
+          alamat: address, 
+          pembayaran: payment, 
+          produk: productName, 
+          harga: productPrice,
+          timestamp: new Date().toISOString()
+        };
 
-Saya ingin mengajukan kerja sama melalui website.
+        // 1. Kirim ke Google Sheets
+        if (sheetUrl && sheetUrl.trim() !== '') {
+          try {
+            await fetch(sheetUrl, {
+              method: 'POST',
+              mode: 'no-cors',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(orderData)
+            });
+            console.log('✅ Data terkirim ke Google Sheets');
+          } catch (err) {
+            console.error('❌ Gagal kirim ke Sheets:', err);
+          }
+        } else {
+          console.warn('⚠️ URL Google Sheets belum diisi di Sanity Settings');
+        }
 
- *DETAIL PERMINTAAN:*
-
- *Nama:* ${name}
-📧 *Email:* ${email}
-📱 *No. WhatsApp:* ${phone || '-'}
-
-🎯 *Jenis Kerja Sama:*
-${collabType}
-
- *Pesan:*
-${message}
-
----
-_Pesan ini dikirim otomatis melalui form kerja sama di AJGR.cc_`;
-
-      const encodedMessage = encodeURIComponent(waMessage);
-      submitBtn.innerHTML = '<span></span><span>Membuka WhatsApp...</span>';
-      submitBtn.disabled = true;
-
-      setTimeout(() => {
+        // 2. Kirim ke WhatsApp
+        const waMessage = `Halo AJGR.cc! 🛍️\n\nSaya ingin melakukan *PRE-ORDER MERCHANDISE*\n\n📦 *Detail Pesanan:*\n• Produk: ${productName}\n• Harga: Rp ${parseInt(productPrice).toLocaleString('id-ID')}\n• Ukuran: ${size}\n• Metode Pembayaran: ${payment}\n\n👤 *Data Pemesan:*\n• Nama: ${nama}\n• No. WhatsApp: ${phone}\n• Alamat: ${address}\n\nMohon konfirmasi ketersediaan dan detail pembayaran. Terima kasih!`;
+        
+        const encodedMessage = encodeURIComponent(waMessage);
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         const waUrl = isMobile 
-          ? `https://wa.me/${recipientWhatsApp}?text=${encodedMessage}`
-          : `https://web.whatsapp.com/send?phone=${recipientWhatsApp}&text=${encodedMessage}`;
-
+          ? `https://wa.me/${waNum}?text=${encodedMessage}`
+          : `https://web.whatsapp.com/send?phone=${waNum}&text=${encodedMessage}`;
+        
+        // Buka WhatsApp di tab baru
         window.open(waUrl, '_blank');
-        form.reset();
-        submitBtn.innerHTML = '<span style="font-size: 1.2rem;">✅</span><span>Pesan Terkirim!</span>';
+
+        // 3. Update UI
+        merchForm.reset();
+        successMsg.style.display = 'block';
+        submitBtn.innerHTML = '✅ Pesanan Terkirim!';
         submitBtn.style.backgroundColor = '#22C55E';
+        
+        setTimeout(() => {
+          successMsg.style.display = 'none';
+          submitBtn.innerHTML = '🛍️ Kirim Pesanan Pre-Order';
+          submitBtn.style.backgroundColor = '';
+          submitBtn.disabled = false;
+        }, 5000);
+      });
+    }
+
+    // ==========================================
+    // 3. COLLAB FORM HANDLER
+    // ==========================================
+    const collabForm = document.getElementById('collabForm');
+    const collabSubmitBtn = document.getElementById('submitBtn');
+    if (collabForm && collabSubmitBtn) {
+      const recipientWhatsApp = collabForm.getAttribute('data-whatsapp');
+      collabForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const name = document.getElementById('collabName').value.trim();
+        const email = document.getElementById('collabEmail').value.trim();
+        const phone = document.getElementById('collabPhone').value.trim();
+        const collabType = document.getElementById('collabType').value;
+        const message = document.getElementById('collabMessage').value.trim();
+
+        if (!name || !email || !collabType || !message) {
+          alert('Mohon lengkapi semua field yang wajib diisi (*).');
+          return;
+        }
+
+        const waMessage = `Halo AJGR.cc! \n\nSaya ingin mengajukan kerja sama melalui website.\n\n *DETAIL PERMINTAAN:*\n\n *Nama:* ${name}\n📧 *Email:* ${email}\n📱 *No. WhatsApp:* ${phone || '-'}\n\n🎯 *Jenis Kerja Sama:*\n${collabType}\n\n *Pesan:*\n${message}\n\n---\n_Pesan ini dikirim otomatis melalui form kerja sama di AJGR.cc_`;
+        const encodedMessage = encodeURIComponent(waMessage);
+        collabSubmitBtn.innerHTML = '<span></span><span>Membuka WhatsApp...</span>';
+        collabSubmitBtn.disabled = true;
 
         setTimeout(() => {
-          submitBtn.innerHTML = '<span style="font-size: 1.2rem;">💬</span><span>Kirim via WhatsApp</span>';
-          submitBtn.style.backgroundColor = '#25D366';
-          submitBtn.disabled = false;
-        }, 3000);
-      }, 500);
-    });
-  </script>
+          const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+          const waUrl = isMobile ? `https://wa.me/${recipientWhatsApp}?text=${encodedMessage}` : `https://web.whatsapp.com/send?phone=${recipientWhatsApp}&text=${encodedMessage}`;
+          window.open(waUrl, '_blank');
+          collabForm.reset();
+          collabSubmitBtn.innerHTML = '<span style="font-size: 1.2rem;">✅</span><span>Pesan Terkirim!</span>';
+          collabSubmitBtn.style.backgroundColor = '#22C55E';
+          setTimeout(() => {
+            collabSubmitBtn.innerHTML = '<span style="font-size: 1.2rem;">💬</span><span>Kirim via WhatsApp</span>';
+            collabSubmitBtn.style.backgroundColor = '#25D366';
+            collabSubmitBtn.disabled = false;
+          }, 3000);
+        }, 500);
+      });
+    }
 
-  <!-- SCRIPT FITTING -->
-  <script is:inline>
+    // ==========================================
+    // 4. FITTING CALCULATOR
+    // ==========================================
     function calculateFitting() {
       const bikeTypeElement = document.getElementById('bikeType');
       const heightElement = document.getElementById('height');
       const inseamElement = document.getElementById('inseam');
-      
-      if (!bikeTypeElement || !heightElement || !inseamElement) {
-        alert('Form tidak ditemukan. Silakan refresh halaman.');
-        return;
-      }
-
+      if (!bikeTypeElement || !heightElement || !inseamElement) { alert('Form tidak ditemukan. Silakan refresh halaman.'); return; }
       const bikeType = bikeTypeElement.value;
       const height = parseFloat(heightElement.value);
       const inseam = parseFloat(inseamElement.value);
-
-      if (!height || !inseam) {
-        alert('Mohon isi Tinggi Badan dan Panjang Inseam dengan benar.');
-        return;
-      }
+      if (!height || !inseam) { alert('Mohon isi Tinggi Badan dan Panjang Inseam dengan benar.'); return; }
 
       let saddleHeight = '', setback = 'Netral (tengah rel)', drop = '', frameSize = '', frameNote = '', advice = '', summary = '';
-
       if (bikeType === 'road') {
-        saddleHeight = (inseam * 0.883).toFixed(1);
-        drop = (height * 0.06).toFixed(1);
-        setback = 'Sedikit ke belakang dari BB';
+        saddleHeight = (inseam * 0.883).toFixed(1); drop = (height * 0.06).toFixed(1); setback = 'Sedikit ke belakang dari BB';
         advice = 'Untuk road bike, posisi saddle yang tepat sangat krusial untuk efisiensi kayuhan. Pastikan lutut tidak terlalu lurus (lock) di bagian bawah kayuhan.';
         summary = 'Road Bike · Tinggi ' + height + 'cm · Inseam ' + inseam + 'cm';
-
         if (height < 160) { frameSize = '48 - 50 cm'; frameNote = 'Ukuran XS - S · Cocok untuk tinggi badan di bawah 160cm'; }
         else if (height < 170) { frameSize = '51 - 53 cm'; frameNote = 'Ukuran S - M · Cocok untuk tinggi badan 160-170cm'; }
         else if (height < 180) { frameSize = '54 - 56 cm'; frameNote = 'Ukuran M - L · Cocok untuk tinggi badan 170-180cm'; }
         else if (height < 190) { frameSize = '57 - 59 cm'; frameNote = 'Ukuran L - XL · Cocok untuk tinggi badan 180-190cm'; }
         else { frameSize = '60+ cm'; frameNote = 'Ukuran XXL · Cocok untuk tinggi badan di atas 190cm'; }
       } else {
-        saddleHeight = (inseam * 0.885).toFixed(1);
-        drop = (height * 0.03).toFixed(1);
-        setback = 'Netral atau sedikit ke depan';
+        saddleHeight = (inseam * 0.885).toFixed(1); drop = (height * 0.03).toFixed(1); setback = 'Netral atau sedikit ke depan';
         advice = 'Untuk MTB/Gravel, saddle biasanya diatur sedikit lebih rendah dari road bike untuk memberikan ruang gerak tubuh saat menghadapi medan teknis dan turunan.';
         summary = 'MTB / Gravel · Tinggi ' + height + 'cm · Inseam ' + inseam + 'cm';
-
         if (height < 160) { frameSize = '15"'; frameNote = 'Ukuran XS · Cocok untuk tinggi badan di bawah 160cm'; }
         else if (height < 170) { frameSize = '17 - 18"'; frameNote = 'Ukuran S - M · Cocok untuk tinggi badan 160-170cm'; }
         else if (height < 180) { frameSize = '19 - 20"'; frameNote = 'Ukuran M - L · Cocok untuk tinggi badan 170-180cm'; }
         else if (height < 190) { frameSize = '21 - 22"'; frameNote = 'Ukuran L - XL · Cocok untuk tinggi badan 180-190cm'; }
         else { frameSize = '23"'; frameNote = 'Ukuran XXL · Cocok untuk tinggi badan di atas 190cm'; }
       }
-
       document.getElementById('res-saddle').innerText = saddleHeight + ' cm';
       document.getElementById('res-setback').innerText = setback;
       document.getElementById('res-drop').innerText = drop + ' cm';
@@ -743,13 +746,11 @@ _Pesan ini dikirim otomatis melalui form kerja sama di AJGR.cc_`;
       document.getElementById('res-frame-size').innerText = frameSize;
       document.getElementById('res-frame-note').innerText = frameNote;
       document.getElementById('res-summary').innerText = summary;
-
       document.getElementById('fitting-form').style.display = 'none';
       const resultEl = document.getElementById('fitting-result');
       resultEl.style.display = 'block';
       resultEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-
     function resetForm() {
       document.getElementById('fitting-result').style.display = 'none';
       document.getElementById('fitting-form').style.display = 'block';
