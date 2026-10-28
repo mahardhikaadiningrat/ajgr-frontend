@@ -1,6 +1,6 @@
-import { n as createComponent, r as __exportAll, t as createAstro } from "./compiler_BGjCl2tC.mjs";
-import { d as renderTemplate, f as maybeRenderHead, i as renderComponent, m as addAttribute } from "./server_BidWz0RG.mjs";
-import { i as urlFor, n as client, r as getSiteSettings, t as $$Layout } from "./Layout_CirPCQFK.mjs";
+import { n as createComponent, r as __exportAll, t as createAstro } from "./compiler_QtOIEW3x.mjs";
+import { d as renderTemplate, f as maybeRenderHead, i as renderComponent, m as addAttribute } from "./server_B_rsFkcn.mjs";
+import { i as urlFor, n as client, r as getSiteSettings, t as $$Layout } from "./Layout_CmUN2yKh.mjs";
 //#region src/pages/archive.astro
 var archive_exports = /* @__PURE__ */ __exportAll({
 	default: () => $$Archive,
@@ -8,7 +8,7 @@ var archive_exports = /* @__PURE__ */ __exportAll({
 	prerender: () => false,
 	url: () => $$url
 });
-createAstro("https://ajergianyar.web.id");
+createAstro("https://astro.build");
 var $$Archive = createComponent(async ($$result, $$props, $$slots) => {
 	const Astro = $$result.createAstro($$props, $$slots);
 	Astro.self = $$Archive;

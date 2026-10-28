@@ -1,5 +1,5 @@
 import { Z as AstroError, q as UnavailableAstroGlobal, y as InvalidComponentArgs } from "./errors-data_gS1BQwyX.mjs";
-import { O as ASTRO_GENERATOR } from "./server_BidWz0RG.mjs";
+import { D as ASTRO_GENERATOR } from "./server_B_rsFkcn.mjs";
 //#region \0rolldown/runtime.js
 var __defProp = Object.defineProperty;
 var __exportAll = (all, no_symbols) => {
